@@ -1,0 +1,189 @@
+# =============================================================================
+# Fortinet FortiOS Base Configuration Template
+# =============================================================================
+# Device: {{ hostname }} | Site: {{ site }} | Region: {{ region }}
+# =============================================================================
+
+config system global
+    set hostname "{{ hostname }}"
+    set timezone 04
+    set admin-sport 443
+    set admin-ssh-port 22
+    set admin-https-ssl-versions tlsv1-2
+end
+
+config system dns
+    set primary {{ dns_servers[0] }}
+    {% if dns_servers | length > 1 %}
+    set secondary {{ dns_servers[1] }}
+    {% endif %}
+end
+
+config system ntp
+    set ntpsync custom
+    config ntpserver
+        edit 1
+            set server {{ ntp_servers[0].ip }}
+        next
+        {% if ntp_servers | length > 1 %}
+        edit 2
+            set server {{ ntp_servers[1].ip }}
+        next
+        {% endif %}
+    end
+end
+
+config system settings
+    set admin-login-message enable
+    set admin-login-banner "{{ banner.login | trim }}"
+end
+
+# --- SSH Configuration (SSH Only - No Telnet) ---
+config system interface
+    {% for iface in interfaces | default([]) %}
+    edit "{{ iface.name }}"
+        set description "{{ iface.description | default(iface.name) }}"
+        {% if iface.ip is defined %}
+        set ip {{ iface.ip.address }} {{ iface.ip.mask | default('255.255.255.0') }}
+        set allowaccess ping https ssh snmp
+        {% endif %}
+        {% if not iface.enabled | default(true) %}
+        set status down
+        {% endif %}
+    next
+    {% endfor %}
+end
+
+# --- SNMP v3 ---
+config system snmp community
+    {% for group in snmp.groups %}
+    edit {{ loop.index }}
+        set name "{{ group.name }}"
+        config hosts
+            edit 1
+                set ip {{ syslog.servers[0].ip }}
+            next
+        end
+        config hosts6
+        end
+    next
+    {% endfor %}
+end
+
+config system snmp sysinfo
+    set status enable
+    set description "{{ snmp.contact }}"
+    set location "{{ snmp.location }}"
+end
+
+# --- Syslog ---
+config log syslogd setting
+    set status enable
+    set server "{{ syslog.servers[0].ip }}"
+    set port {{ syslog.servers[0].port }}
+    set reliable enable
+end
+
+{% if syslog.servers | length > 1 %}
+config log syslogd2 setting
+    set status enable
+    set server "{{ syslog.servers[1].ip }}"
+    set port {{ syslog.servers[1].port }}
+    set reliable enable
+end
+{% endif %}
+
+# --- Zones ---
+{% for zone in zones | default([]) %}
+config system zone
+    edit "{{ zone.name }}"
+        set interface {{ zone.interfaces | join(' ') }}
+    next
+{% endfor %}
+end
+
+# --- Firewall Policies ---
+config firewall policy
+    {% for rule in base_rules | default([]) %}
+    edit {{ loop.index }}
+        set name "{{ rule.name }}"
+        set srcintf "{{ rule.source_zone }}"
+        set dstintf "{{ rule.destination_zone }}"
+        set srcaddr "{{ rule.source }}"
+        set dstaddr "{{ rule.destination }}"
+        set action {% if rule.action == 'allow' %}accept{% else %}deny{% endif %}
+
+        set service "{{ rule.application | default('ALL') }}"
+        set logtraffic {% if rule.log_end %}all{% else %}disable{% endif %}
+
+        set schedule "always"
+    next
+    {% endfor %}
+end
+
+# --- NAT ---
+{% for snat in nat.source_nat | default([]) %}
+config firewall ippool
+    edit "{{ snat.name }}"
+        set startip {{ snat.translated_address }}
+        set endip {{ snat.translated_address }}
+    next
+end
+{% endfor %}
+
+# --- Static Routes ---
+{% for route in routing.static_routes | default([]) %}
+config router static
+    edit {{ loop.index }}
+        set dst "{{ route.prefix }}"
+        set gateway "{{ route.next_hop }}"
+        {% if route.distance is defined %}
+        set distance {{ route.distance }}
+        {% endif %}
+        {% if route.name is defined %}
+        set comment "{{ route.name }}"
+        {% endif %}
+    next
+{% endfor %}
+end
+
+# --- OSPF ---
+{% if routing.ospf is defined %}
+config router ospf
+    set router-id {{ routing.ospf.router_id }}
+    config area
+        edit {{ routing.ospf.areas[0].id | default('0.0.0.0') }}
+        next
+    end
+    config ospf-interface
+        {% for iface in interfaces | default([]) %}
+        {% if iface.ip is defined %}
+        edit "{{ iface.name }}"
+            set interface "{{ iface.name }}"
+            set cost 10
+            set hello-interval 10
+            set dead-interval 40
+        next
+        {% endif %}
+        {% endfor %}
+    end
+end
+{% endif %}
+
+# --- BGP ---
+{% if routing.bgp is defined %}
+config router bgp
+    set as {{ routing.bgp.asn }}
+    set router-id {{ routing.bgp.router_id }}
+    config neighbor
+        {% for neighbor in routing.bgp.neighbors | default([]) %}
+        edit "{{ neighbor.ip }}"
+            set remote-as {{ neighbor.remote_as }}
+            {% if neighbor.update_source is defined %}
+            set update-source "{{ neighbor.update_source }}"
+            {% endif %}
+        next
+        {% endfor %}
+    end
+end
+{% endif %}

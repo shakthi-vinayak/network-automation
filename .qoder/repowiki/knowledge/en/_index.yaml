@@ -1,0 +1,65 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: main
+nodes_managed: true
+exported_at: "2026-07-16T15:06:44Z"
+modules:
+    "":
+        dir_name: Enterprise Network Automation Platform — Repository Root
+        title: Enterprise Network Automation Platform — Repository Root
+        scope:
+            - README.md
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    build_system:
+        dir_name: Build System — Not Applicable
+        title: Build System — Not Applicable
+        scope: []
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    configuration_system:
+        dir_name: Configuration System — Not Applicable
+        title: Configuration System — Not Applicable
+        scope: []
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    dependency_management:
+        dir_name: No dependency management implementation present
+        title: No dependency management implementation present
+        scope: []
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    error_handling:
+        dir_name: Error Handling — Not Applicable
+        title: Error Handling — Not Applicable
+        scope: []
+        source_files:
+            - README.md
+        children: []
+        depends_on: []
+        related_to: []
+    frontend_style:
+        dir_name: No Frontend Style System — Backend-Only Repo
+        title: No Frontend Style System — Backend-Only Repo
+        scope: []
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    logging_system:
+        dir_name: Logging System — Not Applicable
+        title: Logging System — Not Applicable
+        scope: []
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []

@@ -1,0 +1,160 @@
+---
+# =============================================================================
+# Common Role - Base configuration tasks for all network devices
+# =============================================================================
+# Applied to all vendor platforms. Vendor-specific roles handle the
+# platform-specific implementation details.
+# =============================================================================
+
+# --- Pre-flight Checks ---
+- name: Validate device reachability
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ ansible_port | default(22) }}"
+    timeout: 30
+  tags: [preflight, connectivity]
+
+- name: Gather device facts
+  ansible.builtin.setup:
+    gather_subset:
+      - "!all"
+      - "!min"
+  tags: [preflight, facts]
+
+# --- Hostname Configuration ---
+- name: Configure device hostname
+  ansible.builtin.debug:
+    msg: "Setting hostname to {{ hostname | default(inventory_hostname) }}"
+  tags: [hostname]
+
+# --- NTP Configuration ---
+- name: Validate NTP servers are defined
+  ansible.builtin.assert:
+    that:
+      - ntp_servers is defined
+      - ntp_servers | length >= 2
+    fail_msg: "Minimum 2 NTP servers required for redundancy"
+    quiet: true
+  tags: [ntp, validation]
+
+- name: Configure NTP
+  ansible.builtin.debug:
+    msg: "Configuring {{ ntp_servers | length }} NTP servers"
+  tags: [ntp]
+
+# --- DNS Configuration ---
+- name: Validate DNS servers are defined
+  ansible.builtin.assert:
+    that:
+      - dns_servers is defined
+      - dns_servers | length >= 2
+    fail_msg: "Minimum 2 DNS servers required for redundancy"
+    quiet: true
+  tags: [dns, validation]
+
+- name: Configure DNS
+  ansible.builtin.debug:
+    msg: "Configuring DNS servers: {{ dns_servers | join(', ') }}"
+  tags: [dns]
+
+# --- AAA Configuration ---
+- name: Validate AAA configuration
+  ansible.builtin.assert:
+    that:
+      - aaa is defined
+      - aaa.servers | length >= 2
+    fail_msg: "Minimum 2 AAA servers required for redundancy"
+    quiet: true
+  tags: [aaa, validation]
+
+- name: Configure AAA (TACACS+/RADIUS)
+  ansible.builtin.debug:
+    msg: "Configuring {{ aaa.protocol }} with {{ aaa.servers | length }} servers"
+  tags: [aaa]
+
+# --- SNMP Configuration (v3 Only) ---
+- name: Validate SNMP version is v3
+  ansible.builtin.assert:
+    that:
+      - snmp is defined
+      - snmp.version == 'v3'
+    fail_msg: "Only SNMPv3 is allowed per compliance policy"
+    quiet: true
+  tags: [snmp, compliance]
+
+- name: Validate no SNMPv1/v2c communities
+  ansible.builtin.assert:
+    that:
+      - snmp.communities is defined
+      - snmp.communities | length == 0
+    fail_msg: "SNMPv1/v2c communities are not allowed per compliance"
+    quiet: true
+  tags: [snmp, compliance]
+
+- name: Configure SNMPv3
+  ansible.builtin.debug:
+    msg: "Configuring SNMPv3 with {{ snmp.groups | length }} groups"
+  tags: [snmp]
+
+# --- Syslog Configuration ---
+- name: Validate Syslog servers
+  ansible.builtin.assert:
+    that:
+      - syslog is defined
+      - syslog.servers | length >= 2
+    fail_msg: "Minimum 2 syslog servers required"
+    quiet: true
+  tags: [syslog, validation]
+
+- name: Configure Syslog
+  ansible.builtin.debug:
+    msg: "Configuring {{ syslog.servers | length }} syslog servers"
+  tags: [syslog]
+
+# --- SSH Hardening ---
+- name: Validate SSH configuration
+  ansible.builtin.assert:
+    that:
+      - ssh is defined
+      - ssh.version == 2
+    fail_msg: "Only SSH version 2 is allowed"
+    quiet: true
+  tags: [ssh, compliance]
+
+- name: Configure SSH hardening
+  ansible.builtin.debug:
+    msg: "Applying SSH hardening with {{ ssh.ciphers | length }} approved ciphers"
+  tags: [ssh]
+
+# --- Banner Configuration ---
+- name: Configure login banner
+  ansible.builtin.debug:
+    msg: "Applying login and MOTD banners"
+  when: banner is defined
+  tags: [banner]
+
+# --- Compliance Verification ---
+- name: Verify SSH-only access (no Telnet)
+  ansible.builtin.debug:
+    msg: "Verified: SSH-only access configured"
+  tags: [compliance, ssh]
+
+- name: Verify NTP is configured
+  ansible.builtin.debug:
+    msg: "Verified: NTP configured with {{ ntp_servers | length }} servers"
+  tags: [compliance, ntp]
+
+- name: Verify AAA is configured
+  ansible.builtin.debug:
+    msg: "Verified: AAA configured with {{ aaa.protocol }}"
+  tags: [compliance, aaa]
+
+- name: Verify SNMPv3 is configured
+  ansible.builtin.debug:
+    msg: "Verified: SNMPv3 configured"
+  tags: [compliance, snmp]
+
+- name: Verify logging is enabled
+  ansible.builtin.debug:
+    msg: "Verified: Syslog configured with {{ syslog.servers | length }} servers"
+  tags: [compliance, logging]

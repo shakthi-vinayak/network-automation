@@ -1,0 +1,57 @@
+---
+# =============================================================================
+# Initial Provisioning Playbook
+# =============================================================================
+# Bootstraps a new device with baseline configuration including:
+# hostname, NTP, DNS, AAA, SNMP, syslog, SSH, banners, VLANs, interfaces
+# =============================================================================
+
+- name: Initial Device Provisioning
+  hosts: all
+  gather_facts: false
+  connection: ansible.netcommon.network_cli
+
+  pre_tasks:
+    - name: Validate target device is reachable
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ ansible_port | default(22) }}"
+        timeout: 30
+      tags: [preflight]
+
+    - name: Create backup before provisioning
+      ansible.builtin.include_role:
+        name: backup
+      when: backup_before_changes | default(true)
+      tags: [backup]
+
+  tasks:
+    - name: Apply common baseline configuration
+      ansible.builtin.include_role:
+        name: common
+      tags: [baseline]
+
+    - name: Apply Cisco IOS baseline
+      ansible.builtin.include_role:
+        name: cisco_ios_baseline
+      when: vendor == 'cisco' and platform in ['ios', 'ios-xe']
+      tags: [cisco, baseline]
+
+  post_tasks:
+    - name: Verify device connectivity after provisioning
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ ansible_port | default(22) }}"
+        timeout: 60
+      tags: [verify]
+
+    - name: Display provisioning summary
+      ansible.builtin.debug:
+        msg: |
+          =====================================
+          Provisioning Complete: {{ inventory_hostname }}
+          Vendor: {{ vendor }}
+          Platform: {{ platform }}
+          Site: {{ site }}
+          =====================================
+      tags: [summary]

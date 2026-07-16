@@ -1,0 +1,6 @@
+---
+# Backup Role - Defaults
+backup_destination: ./backups
+backup_encrypt: true
+backup_retention_days: 90
+backup_tftp_server: 10.254.5.30

@@ -1,0 +1,12 @@
+---
+# Compliance Scan Role - Defaults
+compliance_report_dir: ./compliance/reports
+compliance_check_ssh_only: true
+compliance_check_ntp: true
+compliance_check_aaa: true
+compliance_check_snmpv3: true
+compliance_check_logging: true
+compliance_check_password_policy: true
+compliance_check_approved_firmware: true
+compliance_check_approved_ciphers: true
+compliance_severity_threshold: HIGH

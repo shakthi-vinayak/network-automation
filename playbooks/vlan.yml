@@ -1,0 +1,70 @@
+---
+# =============================================================================
+# VLAN Playbook - Configure VLANs across switches
+# =============================================================================
+
+- name: Configure VLANs
+  hosts: distribution_switches:access_switches
+  gather_facts: false
+  connection: ansible.netcommon.network_cli
+
+  pre_tasks:
+    - name: Backup current configuration
+      ansible.builtin.include_role:
+        name: backup
+      tags: [backup]
+
+  tasks:
+    - name: Configure VLANs (Cisco IOS)
+      cisco.ios.ios_vlans:
+        config:
+          - vlan_id: "{{ item.id }}"
+            name: "{{ item.name }}"
+            state: "{{ item.state | default('active') }}"
+            shutdown: "{{ item.shutdown | default(false) }}"
+        state: merged
+      loop: "{{ vlans }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: vendor == 'cisco' and platform in ['ios', 'ios-xe']
+      tags: [vlan, cisco]
+
+    - name: Configure VLANs (Cisco NX-OS)
+      cisco.nxos.nxos_vlans:
+        config:
+          - vlan_id: "{{ item.id }}"
+            name: "{{ item.name }}"
+            state: "{{ item.state | default('active') }}"
+        state: merged
+      loop: "{{ vlans }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: vendor == 'cisco' and platform == 'nx-os'
+      tags: [vlan, cisco]
+
+    - name: Configure VLANs (Arista EOS)
+      arista.eos.eos_vlans:
+        config:
+          - vlan_id: "{{ item.id }}"
+            name: "{{ item.name }}"
+            state: "{{ item.state | default('active') }}"
+        state: merged
+      loop: "{{ vlans }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: vendor == 'arista'
+      tags: [vlan, arista]
+
+  post_tasks:
+    - name: Verify VLAN configuration
+      cisco.ios.ios_command:
+        commands:
+          - show vlan brief
+      register: vlan_output
+      when: vendor == 'cisco'
+      tags: [verify]
+
+    - name: Display VLAN summary
+      ansible.builtin.debug:
+        msg: "VLAN configuration completed for {{ inventory_hostname }}"
+      tags: [summary]

@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: error_handling
+title: Error Handling — Not Applicable
+scope: []
+source_files:
+    - README.md
+depends_on: []
+related_to: []

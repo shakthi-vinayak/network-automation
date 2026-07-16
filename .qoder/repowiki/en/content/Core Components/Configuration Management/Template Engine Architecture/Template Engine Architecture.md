@@ -3,7 +3,22 @@
 <cite>
 **Referenced Files in This Document**
 - [README.md](file://README.md)
+- [base_config.j2](file://templates/cisco_ios/base_config.j2)
+- [base_config.j2](file://templates/arista_eos/base_config.j2)
+- [base_config.j2](file://templates/cisco_nxos/base_config.j2)
+- [all.yml](file://group_vars/all.yml)
+- [core-rtr-01-us-east.yml](file://host_vars/core-rtr-01-us-east.yml)
+- [__init__.py](file://schemas/__init__.py)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated template engine architecture documentation to reflect implemented Jinja2-based configuration generation
+- Added detailed analysis of vendor-specific templates for Cisco IOS, Arista EOS, and Cisco NX-OS platforms
+- Enhanced template processing workflow documentation with concrete examples from actual template files
+- Updated multi-vendor VLAN configuration example with real template outputs
+- Added comprehensive coverage of routing protocols, security policies, and interface configurations
+- Integrated schema validation module into the template rendering pipeline
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -11,14 +26,17 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
+6. [Template Processing Workflow](#template-processing-workflow)
+7. [Vendor-Specific Template Implementation](#vendor-specific-template-implementation)
+8. [Configuration Generation Pipeline](#configuration-generation-pipeline)
+9. [Dependency Analysis](#dependency-analysis)
+10. [Performance Considerations](#performance-considerations)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
 
 ## Introduction
 
-The Enterprise Network Automation Platform implements a sophisticated Jinja2-based template engine architecture designed for multi-vendor network automation at enterprise scale. This system transforms structured YAML data into vendor-specific network configurations through a comprehensive rendering pipeline that supports Cisco IOS/NX-OS, Juniper SRX/MX, Arista EOS, Palo Alto PAN-OS, Fortinet FortiOS, and other major networking platforms.
+The Enterprise Network Automation Platform implements a sophisticated Jinja2-based template engine architecture designed for multi-vendor network automation at enterprise scale. This system transforms structured YAML data into vendor-specific network configurations through a comprehensive rendering pipeline that supports Cisco IOS/NX-OS, Arista EOS, Juniper SRX/MX, Palo Alto PAN-OS, Fortinet FortiOS, and other major networking platforms.
 
 The template engine serves as the core component of the "Network as Code" principle, enabling consistent configuration generation across diverse vendor ecosystems while maintaining platform-specific syntax and capabilities. The architecture emphasizes maintainability, testability, and compliance enforcement throughout the configuration lifecycle.
 
@@ -44,74 +62,51 @@ H --> M[paloalto/]
 H --> N[fortinet/]
 end
 subgraph "Python Modules"
-O[python/config_gen/] --> P[config_generator.py]
-O --> Q[template_loader.py]
-O --> R[context_builder.py]
-O --> S[filter_functions.py]
-O --> T[custom_extensions.py]
+O[schemas/] --> P[__init__.py]
+O --> Q[Schema Validator]
 end
 end
 ```
 
 **Diagram sources**
-- [README.md:103-180](file://README.md#L103-L180)
-- [README.md:438-456](file://README.md#L438-L456)
+- [README.md:160-237](file://README.md#L160-L237)
 
 The architecture organizes templates by vendor under dedicated subdirectories, ensuring clean separation of platform-specific logic while maintaining shared business rules in structured data formats.
 
 **Section sources**
-- [README.md:103-180](file://README.md#L103-L180)
-- [README.md:438-456](file://README.md#L438-L456)
+- [README.md:160-237](file://README.md#L160-L237)
 
 ## Core Components
 
-### Config Generation Module (`python/config_gen/`)
+### Schema Validation Module (`schemas/`)
 
-The config generation module serves as the central orchestrator for the template rendering pipeline. It coordinates data ingestion, variable resolution, template loading, and output generation across multiple vendor platforms.
+The schema validation module provides comprehensive validation for inventory, group_vars, and host_vars files against predefined JSON schemas. It ensures data integrity before template processing begins.
 
 #### Key Responsibilities:
-- **Data Ingestion**: Loading structured YAML configuration data from inventories and variables
-- **Context Building**: Constructing Jinja2 template context from device inventory and group/host variables  
-- **Template Resolution**: Selecting appropriate vendor-specific templates based on device attributes
-- **Rendering Pipeline**: Executing Jinja2 template processing with custom filters and extensions
-- **Validation Integration**: Coordinating with validation modules for pre-deployment checks
+- **Schema Loading**: Dynamically loads JSON schema definitions for different file types
+- **YAML Parsing**: Safely parses YAML configuration files with error handling
+- **Validation Execution**: Applies Draft7 JSON Schema validation rules
+- **Error Reporting**: Provides detailed validation errors with file paths and messages
+- **Batch Processing**: Validates multiple files across the entire project structure
 
 #### Module Architecture:
 ```mermaid
 classDiagram
-class ConfigGenerator {
-+load_inventory() DeviceInventory
-+build_context(device_id) TemplateContext
-+resolve_variables(context) ResolvedContext
-+render_template(template_path, context) str
-+validate_output(config_str) ValidationResult
-+generate_vendor_configs(device_list) Dict[str, str]
+class SchemaValidator {
++schemas_dir : Path
++_schemas : dict[str, dict]
++_load_schema(schema_name) dict
++_load_yaml(yaml_path) Any
++validate(yaml_path, schema_name) tuple
++validate_inventory(yaml_path) tuple
++validate_group_vars(yaml_path) tuple
++validate_host_vars(yaml_path) tuple
++validate_all(base_path) dict
 }
-class TemplateLoader {
-+load_jinja2_environment() Environment
-+find_template(vendor, template_name) Template
-+register_filters(environment) Environment
-+register_extensions(environment) Environment
-}
-class ContextBuilder {
-+merge_device_vars(device_id) Dict
-+apply_group_overrides(group_vars) Dict
-+resolve_secrets(secrets_backend) Dict
-+build_render_context() TemplateContext
-}
-class FilterFunctions {
-+format_ip_address(ip) str
-+generate_acl_rules(rules) str
-+create_vlan_config(vlan_data) str
-+sanitize_for_platform(text, platform) str
-}
-ConfigGenerator --> TemplateLoader : "uses"
-ConfigGenerator --> ContextBuilder : "uses"
-ConfigGenerator --> FilterFunctions : "uses"
 ```
 
 **Diagram sources**
-- [README.md:438-456](file://README.md#L438-L456)
+- [__init__.py:14-161](file://schemas/__init__.py#L14-L161)
 
 ### Template Directory Structure
 
@@ -119,16 +114,15 @@ The template organization follows vendor-specific directories under `templates/`
 
 | Vendor Directory | Platforms Supported | Configuration Types |
 |------------------|-------------------|---------------------|
-| `cisco_ios/` | Cisco IOS, IOS-XE | VLANs, ACLs, routing protocols, interfaces |
-| `cisco_nxos/` | Cisco NX-OS | VLANs, ACI policies, fabric configuration |
+| `cisco_ios/` | Cisco IOS, IOS-XE | VLANs, ACLs, routing protocols, interfaces, SSH hardening, SNMPv3 |
+| `cisco_nxos/` | Cisco NX-OS | VLANs, SVI, routing protocols, features, spanning tree |
 | `juniper_srx/` | Juniper SRX | Security zones, policies, NAT rules |
-| `juniper_mx/` | Juniper MX | Routing, firewall policies, interface configs |
-| `arista_eos/` | Arista EOS | VLANs, STP, routing protocols, eAPI |
+| `arista_eos/` | Arista EOS | VLANs, STP, routing protocols, eAPI, port channels |
 | `paloalto/` | Palo Alto PAN-OS | Security policies, address objects, zones |
 | `fortinet/` | Fortinet FortiOS | Firewall policies, address groups, interfaces |
 
 **Section sources**
-- [README.md:116-128](file://README.md#L116-L128)
+- [README.md:173-185](file://README.md#L173-L185)
 
 ## Architecture Overview
 
@@ -138,12 +132,14 @@ The template rendering pipeline implements a comprehensive workflow from structu
 sequenceDiagram
 participant Dev as Developer
 participant CI as CI/CD Pipeline
+participant Val as Schema Validator
 participant Gen as Config Generator
 participant TL as Template Loader
 participant JB as Jinja2 Engine
-participant Val as Validator
 participant Dep as Deployment
 Dev->>CI : Push configuration changes
+CI->>Val : Validate YAML schemas
+Val-->>CI : Validation results
 CI->>Gen : Trigger template rendering
 Gen->>Gen : Load YAML structured data
 Gen->>TL : Request template context
@@ -151,29 +147,25 @@ TL->>TL : Merge device/group/host vars
 TL->>JB : Build Jinja2 environment
 Gen->>JB : Render vendor-specific templates
 JB-->>Gen : Generated configuration
-Gen->>Val : Validate configuration syntax
-Val-->>Gen : Validation results
 Gen->>Dep : Deploy validated configs
 Dep-->>Dev : Deployment status
 Note over CI,Dep : Automated validation and deployment
 ```
 
 **Diagram sources**
-- [README.md:479-501](file://README.md#L479-L501)
-- [README.md:272-274](file://README.md#L272-L274)
+- [README.md:874-935](file://README.md#L874-L935)
 
 ### Data Flow Architecture
 
 ```mermaid
 flowchart TD
-A[YAML Structured Data] --> B[Data Ingestion]
-B --> C[Schema Validation]
-C --> D[Variable Resolution]
-D --> E[Context Building]
-E --> F[Jinja2 Template Processing]
-F --> G[Vendor-Specific Output]
-G --> H[Configuration Validation]
-H --> I[Deployment Pipeline]
+A[YAML Structured Data] --> B[Schema Validation]
+B --> C[Variable Resolution]
+C --> D[Context Building]
+D --> E[Jinja2 Template Processing]
+E --> F[Vendor-Specific Output]
+F --> G[Configuration Validation]
+G --> H[Deployment Pipeline]
 subgraph "Input Sources"
 A1[Inventories]
 A2[Group Variables]
@@ -181,7 +173,7 @@ A3[Host Variables]
 A4[Secrets Backend]
 end
 subgraph "Processing Layers"
-B1[Data Parser]
+B1[JSON Schema Validator]
 B2[Type Converter]
 B3[Enrichment Engine]
 end
@@ -207,7 +199,7 @@ G --> G5
 ```
 
 **Diagram sources**
-- [README.md:103-180](file://README.md#L103-L180)
+- [README.md:874-935](file://README.md#L874-L935)
 
 ## Detailed Component Analysis
 
@@ -215,20 +207,20 @@ G --> G5
 
 The template processing workflow implements a multi-stage pipeline ensuring data integrity and configuration correctness:
 
-#### Stage 1: Data Ingestion
+#### Stage 1: Schema Validation
 - **Source Identification**: Loads YAML data from inventories, group_vars, and host_vars
-- **Schema Validation**: Validates data structure against predefined schemas
-- **Type Conversion**: Converts string values to appropriate Python types
-- **Secret Resolution**: Integrates with secrets backends for sensitive data
+- **Schema Definition**: Validates data structure against predefined JSON schemas
+- **Type Conversion**: Ensures proper data types for template processing
+- **Error Detection**: Identifies structural issues before template rendering
 
 #### Stage 2: Variable Resolution  
 - **Hierarchy Resolution**: Applies variable precedence (host > group > default)
+- **Secret Integration**: Resolves sensitive data from vault backends
 - **Conditional Logic**: Evaluates conditional expressions based on device attributes
 - **Template Functions**: Processes built-in and custom template functions
-- **Error Handling**: Provides meaningful error messages for missing variables
 
 #### Stage 3: Template Rendering
-- **Environment Setup**: Initializes Jinja2 environment with custom filters and extensions
+- **Environment Setup**: Initializes Jinja2 environment with vendor-specific filters
 - **Template Selection**: Chooses appropriate vendor-specific templates
 - **Context Injection**: Injects resolved variables into template context
 - **Rendering Execution**: Processes templates with error handling and logging
@@ -240,8 +232,7 @@ The template processing workflow implements a multi-stage pipeline ensuring data
 - **Automated Deployment**: Applies validated configurations to target devices
 
 **Section sources**
-- [README.md:479-501](file://README.md#L479-L501)
-- [README.md:674-685](file://README.md#L674-L685)
+- [README.md:874-935](file://README.md#L874-L935)
 
 ### Template Context Building Process
 
@@ -281,29 +272,107 @@ C --> B4
 **Diagram sources**
 - [README.md:284-335](file://README.md#L284-L335)
 
-### Filter Functions and Custom Extensions
+## Template Processing Workflow
 
-The template engine extends Jinja2 with custom filter functions and extensions tailored for network automation:
+The template processing workflow implements a multi-stage pipeline ensuring data integrity and configuration correctness:
 
-#### Built-in Filter Functions:
-- **IP Address Formatting**: Standardizes IP address representations across vendors
-- **ACL Rule Generation**: Creates vendor-specific access control list syntax
-- **VLAN Configuration**: Generates platform-appropriate VLAN definitions
-- **Interface Naming**: Normalizes interface naming conventions
-- **Security Policy Creation**: Builds firewall and security policy configurations
+#### Stage 1: Data Ingestion
+- **Source Identification**: Loads YAML data from inventories, group_vars, and host_vars
+- **Schema Validation**: Validates data structure against predefined schemas
+- **Type Conversion**: Converts string values to appropriate Python types
+- **Secret Resolution**: Integrates with secrets backends for sensitive data
 
-#### Custom Jinja2 Extensions:
-- **Secret Management**: Secure integration with HashiCorp Vault and cloud secret managers
-- **Device Capability Detection**: Conditional template rendering based on device features
-- **Compliance Enforcement**: Real-time policy checking during template rendering
-- **Configuration Diffing**: Comparison utilities for change impact analysis
+#### Stage 2: Variable Resolution  
+- **Hierarchy Resolution**: Applies variable precedence (host > group > default)
+- **Conditional Logic**: Evaluates conditional expressions based on device attributes
+- **Template Functions**: Processes built-in and custom template functions
+- **Error Handling**: Provides meaningful error messages for missing variables
+
+#### Stage 3: Template Rendering
+- **Environment Setup**: Initializes Jinja2 environment with custom filters and extensions
+- **Template Selection**: Chooses appropriate vendor-specific templates
+- **Context Injection**: Injects resolved variables into template context
+- **Rendering Execution**: Processes templates with error handling and logging
+
+#### Stage 4: Validation and Deployment
+- **Syntax Validation**: Checks generated configuration syntax
+- **Compliance Checking**: Enforces security and operational policies
+- **Dry Run Testing**: Simulates deployment without applying changes
+- **Automated Deployment**: Applies validated configurations to target devices
 
 **Section sources**
-- [README.md:438-456](file://README.md#L438-L456)
+- [README.md:874-935](file://README.md#L874-L935)
+
+## Vendor-Specific Template Implementation
+
+### Cisco IOS Template Features
+
+The Cisco IOS template (`templates/cisco_ios/base_config.j2`) provides comprehensive configuration generation including:
+
+#### Core Infrastructure
+- **Hostname and Domain Configuration**: Dynamic hostname assignment with domain search lists
+- **NTP Synchronization**: Multiple NTP server support with authentication keys
+- **DNS Resolution**: Configurable DNS servers and domain search domains
+- **AAA Authentication**: TACACS+ server groups with authentication, authorization, and accounting
+
+#### Security Hardening
+- **SSH Configuration**: Version 2 enforcement with approved cipher suites and algorithms
+- **SNMPv3 Support**: Secure SNMP with authentication and privacy settings
+- **Syslog Integration**: Centralized logging with severity levels and source interfaces
+- **Banner Configuration**: Login and MOTD banners with dynamic content
+
+#### Network Services
+- **VLAN Management**: Dynamic VLAN creation with names and states
+- **Interface Configuration**: Physical and logical interfaces with IP addressing
+- **Routing Protocols**: OSPF and BGP configuration with neighbor relationships
+- **ACL Implementation**: Standard and extended access control lists
+
+**Section sources**
+- [base_config.j2:1-288](file://templates/cisco_ios/base_config.j2#L1-L288)
+
+### Arista EOS Template Features
+
+The Arista EOS template (`templates/arista_eos/base_config.j2`) delivers platform-specific configuration generation:
+
+#### Platform-Specific Features
+- **eAPI Management**: HTTP API management plane configuration
+- **Spanning Tree Protocol**: Rapid-PVST mode with priority configuration
+- **Port Channel Support**: LACP aggregation with minimum link requirements
+- **SVI Interfaces**: Switched Virtual Interface configuration with HSRP support
+
+#### Advanced Networking
+- **Loopback Interfaces**: Stable router ID addresses with descriptions
+- **Physical Interfaces**: Comprehensive interface configuration with MTU settings
+- **Routing Protocols**: OSPF and BGP with neighbor relationships and network advertisements
+- **Static Routes**: Default and specific route configuration
+
+**Section sources**
+- [base_config.j2:1-196](file://templates/arista_eos/base_config.j2#L1-L196)
+
+### Cisco NX-OS Template Features
+
+The Cisco NX-OS template (`templates/cisco_nxos/base_config.j2`) provides next-generation switching platform configuration:
+
+#### Feature Management
+- **Feature Activation**: Dynamic feature enablement (OSPF, BGP, VPC, NX-API)
+- **Advanced Routing**: Enhanced routing protocol support with address families
+- **High Availability**: HSRP configuration with preemption and delay settings
+- **Layer 2 Services**: Spanning tree with VLAN-specific priority configuration
+
+#### Modern Network Design
+- **Virtual Port Channels**: VPC support for data center fabric connectivity
+- **NX-API Integration**: RESTful API management plane configuration
+- **Enhanced Interfaces**: Advanced interface configuration with switchport modes
+- **Protocol Optimization**: Optimized routing protocol parameters for high-performance networks
+
+**Section sources**
+- [base_config.j2:1-163](file://templates/cisco_nxos/base_config.j2#L1-L163)
+
+## Configuration Generation Pipeline
 
 ### Multi-Vendor VLAN Configuration Example
 
-The template engine demonstrates its multi-vendor capabilities through unified VLAN management:
+The template engine demonstrates its multi-vendor capabilities through unified VLAN management using structured YAML data:
 
 #### Input Definition (YAML):
 ```yaml
@@ -323,49 +392,68 @@ vlans:
 ```
 vlan 100
  name Corporate Users
- description Corporate user access VLAN
- ip helper-address 10.100.0.1
-```
-
-**Juniper SRX:**
-```
-set vlans vlan-100 vlan-id 100
-set vlans vlan-100 l3-interface ge-0/0/1.100
-set vlans vlan-100 dhcp-relay group corporate-dhcp
+ state active
+!
 ```
 
 **Arista EOS:**
 ```
 vlan 100
-   name Corporate Users
-   description Corporate user access VLAN
-ip route 10.100.0.0/24 10.100.0.1
+ name Corporate Users
+ state active
+!
 ```
 
-**Palo Alto PAN-OS:**
-```xml
-<vsys>
-  <entry name="vsys1">
-    <interface>
-      <ethernet>
-        <entry name="eth1/1">
-          <tagging>
-            <entry name="100">
-              <native-tagging/>
-            </entry>
-          </tagging>
-        </entry>
-      </ethernet>
-    </interface>
-  </entry>
-</vsys>
+**Cisco NX-OS:**
+```
+vlan 100
+ name Corporate Users
+ state active
+!
 ```
 
 This example illustrates how a single YAML definition generates platform-specific configurations while maintaining semantic consistency across different vendor ecosystems.
 
+### Comprehensive Device Configuration Example
+
+Using the provided host variables for `core-rtr-01-us-east`, the template engine generates complete device configurations:
+
+#### Host Variables Structure:
+```yaml
+hostname: core-rtr-01-us-east
+asn: 65001
+routing:
+  bgp:
+    neighbors:
+      - ip: 10.255.1.2
+        remote_as: 65001
+        description: iBGP to core-rtr-02-us-east
+        update_source: Loopback0
+interfaces:
+  - name: GigabitEthernet0/0/0
+    description: TO-core-rtr-02-us-east
+    ip:
+      address: 10.100.0.1
+      mask: 255.255.255.252
+    enabled: true
+    mtu: 9216
+acl:
+  - name: MGMT-ACCESS
+    type: extended
+    entries:
+      - sequence: 10
+        action: permit
+        protocol: tcp
+        source: 10.254.0.0 0.0.255.255
+        destination: any
+```
+
+#### Generated Cisco IOS Configuration:
+The template processes these variables to generate comprehensive IOS configuration including BGP peering, interface definitions, and ACL rules.
+
 **Section sources**
-- [README.md:116-128](file://README.md#L116-L128)
-- [README.md:203-217](file://README.md#L203-L217)
+- [core-rtr-01-us-east.yml:1-103](file://host_vars/core-rtr-01-us-east.yml#L1-L103)
+- [base_config.j2:188-246](file://templates/cisco_ios/base_config.j2#L188-L246)
 
 ## Dependency Analysis
 
@@ -409,16 +497,15 @@ L --> T
 
 **Diagram sources**
 - [README.md:339-357](file://README.md#L339-L357)
-- [README.md:438-456](file://README.md#L438-L456)
 
 ### Component Coupling Analysis
 
 The architecture demonstrates low coupling between components through well-defined interfaces:
 
-- **Template Loader**: Decouples template discovery from rendering logic
-- **Context Builder**: Abstracts data source complexity from template processing
+- **Schema Validator**: Decouples data validation from template processing logic
+- **Template Loader**: Abstracts template discovery from rendering logic
+- **Context Builder**: Encapsulates data source complexity from template processing
 - **Filter Functions**: Provides reusable transformation logic independent of specific templates
-- **Custom Extensions**: Encapsulates complex functionality behind simple APIs
 
 ### External Dependencies
 
@@ -433,7 +520,6 @@ The system integrates with multiple external services:
 
 **Section sources**
 - [README.md:339-357](file://README.md#L339-L357)
-- [README.md:438-456](file://README.md#L438-L456)
 
 ## Performance Considerations
 
@@ -497,7 +583,6 @@ The system implements comprehensive logging at multiple levels:
 
 **Section sources**
 - [README.md:674-685](file://README.md#L674-L685)
-- [README.md:272-274](file://README.md#L272-L274)
 
 ## Conclusion
 

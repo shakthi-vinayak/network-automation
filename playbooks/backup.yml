@@ -1,0 +1,21 @@
+---
+# =============================================================================
+# Backup Playbook - Backup all device configurations
+# =============================================================================
+
+- name: Backup Device Configurations
+  hosts: all
+  gather_facts: false
+  connection: ansible.netcommon.network_cli
+
+  tasks:
+    - name: Run backup role
+      ansible.builtin.include_role:
+        name: backup
+      tags: [backup]
+
+  post_tasks:
+    - name: Display backup summary
+      ansible.builtin.debug:
+        msg: "Backup completed for {{ inventory_hostname }}"
+      tags: [summary]

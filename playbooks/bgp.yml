@@ -1,0 +1,68 @@
+---
+# =============================================================================
+# BGP Playbook - Configure BGP routing
+# =============================================================================
+
+- name: Configure BGP Routing
+  hosts: core_routers:wan_edge:internet_edge
+  gather_facts: false
+  connection: ansible.netcommon.network_cli
+
+  pre_tasks:
+    - name: Backup current configuration
+      ansible.builtin.include_role:
+        name: backup
+      tags: [backup]
+
+  tasks:
+    - name: Configure BGP (Cisco IOS)
+      cisco.ios.ios_bgp_global:
+        config:
+          as_number: "{{ routing.bgp.asn }}"
+          bgp:
+            router_id: "{{ routing.bgp.router_id }}"
+            log_neighbor_changes: true
+          neighbors:
+            - neighbor_address: "{{ item.ip }}"
+              remote_as: "{{ item.remote_as }}"
+              description: "{{ item.description | default(omit) }}"
+              update_source: "{{ item.update_source | default(omit) }}"
+          networks:
+            - address: "{{ item.prefix }}"
+              mask: "{{ item.mask | default(omit) }}"
+        state: merged
+      loop: "{{ routing.bgp.neighbors | default([]) }}"
+      loop_control:
+        label: "{{ item.ip }}"
+      when: vendor == 'cisco' and routing.bgp is defined
+      tags: [bgp, cisco]
+
+    - name: Configure BGP (Arista EOS)
+      arista.eos.eos_bgp_global:
+        config:
+          as_number: "{{ routing.bgp.asn }}"
+          router_id: "{{ routing.bgp.router_id }}"
+          neighbors:
+            - neighbor_address: "{{ item.ip }}"
+              remote_as: "{{ item.remote_as }}"
+              description: "{{ item.description | default(omit) }}"
+        state: merged
+      loop: "{{ routing.bgp.neighbors | default([]) }}"
+      loop_control:
+        label: "{{ item.ip }}"
+      when: vendor == 'arista' and routing.bgp is defined
+      tags: [bgp, arista]
+
+  post_tasks:
+    - name: Verify BGP neighbors
+      cisco.ios.ios_command:
+        commands:
+          - show ip bgp summary
+      register: bgp_summary
+      when: vendor == 'cisco'
+      tags: [verify]
+
+    - name: Display BGP summary
+      ansible.builtin.debug:
+        msg: "BGP configuration completed for {{ inventory_hostname }}"
+      tags: [summary]

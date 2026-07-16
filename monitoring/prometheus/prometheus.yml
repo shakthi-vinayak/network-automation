@@ -1,0 +1,70 @@
+---
+# =============================================================================
+# Prometheus Configuration - Network Device Monitoring
+# =============================================================================
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  scrape_timeout: 10s
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Rule files
+rule_files:
+  - "rules/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Network device SNMP metrics via snmp_exporter
+  - job_name: "network_devices_snmp"
+    scrape_interval: 60s
+    static_configs:
+      - targets:
+          - 10.0.1.1
+          - 10.0.1.2
+          - 10.0.2.1
+          - 10.0.2.2
+          - 10.0.4.1
+          - 10.0.4.2
+        labels:
+          environment: production
+          region: us-east
+    metrics_path: /snmp
+    params:
+      module: [if_mib]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: snmp-exporter:9116
+
+  # SNMP Exporter
+  - job_name: "snmp_exporter"
+    static_configs:
+      - targets:
+          - snmp-exporter:9116
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Node exporter for automation server metrics
+  - job_name: "node_exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # Automation job metrics
+  - job_name: "automation_jobs"
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["automation-api:8000"]
+    metrics_path: /metrics

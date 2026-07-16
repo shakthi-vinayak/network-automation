@@ -1,0 +1,154 @@
+---
+# =============================================================================
+# Firewalls - Group Variables
+# =============================================================================
+
+# --- Firewall HA Configuration ---
+firewall_ha:
+  enabled: true
+  mode: active-passive
+  preempt: true
+  preempt_delay: 300
+  heartbeat_interface: ethernet1/1
+  monitor_interfaces:
+    - ethernet1/2
+    - ethernet1/3
+
+# --- Zone Configuration ---
+zones:
+  - name: TRUST
+    interfaces:
+      - ethernet1/3
+  - name: UNTRUST
+    interfaces:
+      - ethernet1/2
+  - name: DMZ
+    interfaces:
+      - ethernet1/4
+  - name: MANAGEMENT
+    interfaces:
+      - ethernet1/1
+
+# --- Security Profiles ---
+security_profiles:
+  antivirus:
+    name: AV-STANDARD
+    action: default-action
+    default_action: alert
+  anti_spyware:
+    name: SPYWARE-STANDARD
+    rules:
+      - name: critical
+        action: reset-both
+      - name: high
+        action: reset-both
+      - name: medium
+        action: alert
+  vulnerability_protection:
+    name: VULN-STANDARD
+    rules:
+      - name: critical
+        action: reset-both
+      - name: high
+        action: reset-both
+      - name: medium
+        action: alert
+  url_filtering:
+    name: URL-STANDARD
+    action: alert
+    categories_blocked:
+      - malware
+      - phishing
+      - command-and-control
+  file_blocking:
+    name: FILE-BLOCK-STANDARD
+    rules:
+      - name: block-executables
+        action: block
+        file_types:
+          - exe
+          - dll
+          - bat
+          - vbs
+
+# --- Base Firewall Rules ---
+base_rules:
+  - name: ALLOW-DNS
+    source_zone: TRUST
+    destination_zone: UNTRUST
+    source: any
+    destination: any
+    application: dns
+    service: application-default
+    action: allow
+    log_start: false
+    log_end: true
+  - name: ALLOW-NTP
+    source_zone: TRUST
+    destination_zone: UNTRUST
+    source: any
+    destination: "{{ ntp_servers | map(attribute='ip') | list }}"
+    application: ntp
+    service: application-default
+    action: allow
+    log_start: false
+    log_end: true
+  - name: ALLOW-ICMP-INTERNAL
+    source_zone: TRUST
+    destination_zone: TRUST
+    source: any
+    destination: any
+    application: ping
+    service: application-default
+    action: allow
+    log_start: false
+    log_end: true
+  - name: DENY-ALL-LOG
+    source_zone: any
+    destination_zone: any
+    source: any
+    destination: any
+    application: any
+    service: any
+    action: deny
+    log_start: false
+    log_end: true
+
+# --- NAT Configuration ---
+nat:
+  source_nat:
+    - name: TRUST-TO-UNTRUST
+      source_zone: TRUST
+      destination_zone: UNTRUST
+      source: 10.0.0.0/8
+      translated_address: "{{ internet_nat_pool | default('203.0.113.1') }}"
+      type: dynamic-ip-and-port
+  destination_nat:
+    []
+
+# --- SSL/TLS Configuration ---
+ssl:
+  min_version: tls1.2
+  approved_ciphers:
+    - TLS_AES_256_GCM_SHA384
+    - TLS_AES_128_GCM_SHA256
+    - TLS_CHACHA20_POLY1305_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+
+# --- GlobalProtect / VPN ---
+globalprotect:
+  enabled: true
+  portal_address: "{{ vpn_portal_ip | default('203.0.113.10') }}"
+  authentication:
+    profile: LDAP-AUTH
+    portal: SAML-PORTAL
+  hip_checks:
+    - antivirus
+    - firewall
+    - disk-backup
+  split_tunnel:
+    enabled: true
+    include_routes:
+      - 10.0.0.0/8
+    exclude_routes: []

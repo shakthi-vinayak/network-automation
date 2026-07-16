@@ -1,0 +1,83 @@
+---
+# Molecule scenario: default
+# Tests for the 'common' Ansible role
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: cisco-ios-test-01
+    image: ghcr.io/network-automation/cisco-ios-emulator:latest
+    privileged: true
+    command: /sbin/init
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    groups:
+      - core_routers
+  - name: arista-eos-test-01
+    image: ghcr.io/network-automation/arista-eos-emulator:latest
+    privileged: true
+    command: /sbin/init
+    groups:
+      - access_switches
+provisioner:
+  name: ansible
+  inventory:
+    group_vars:
+      all:
+        ntp_servers:
+          - 10.0.0.1
+          - 10.0.0.2
+        dns_servers:
+          - 8.8.8.8
+          - 8.8.4.4
+        syslog_servers:
+          - host: 10.0.0.10
+            severity: informational
+          - host: 10.0.0.11
+            severity: informational
+        aaa:
+          enabled: true
+          protocol: tacacs+
+          servers:
+            - 10.0.0.20
+            - 10.0.0.21
+        snmp:
+          v3_enabled: true
+          v1v2_communities: []
+        ssh:
+          version: 2
+          ciphers:
+            - aes256-gcm
+            - aes128-gcm
+    host_vars:
+      cisco-ios-test-01:
+        hostname: test-rtr-01
+        vendor: cisco
+        platform: ios-xe
+      arista-eos-test-01:
+        hostname: test-sw-01
+        vendor: arista
+        platform: eos
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+verifier:
+  name: ansible
+lint: |
+  set -e
+  yamllint .
+  ansible-lint .
+scenario:
+  name: default
+  test_sequence:
+    - lint
+    - destroy
+    - dependency
+    - syntax
+    - create
+    - converge
+    - idempotence
+    - verify
+    - destroy

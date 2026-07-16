@@ -1,0 +1,9 @@
+---
+# Molecule converge playbook — applies the common role
+- name: Apply common baseline role
+  hosts: all
+  gather_facts: false
+  connection: network_cli
+
+  roles:
+    - role: common

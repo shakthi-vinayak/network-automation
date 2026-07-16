@@ -2,297 +2,398 @@
 
 <cite>
 **Referenced Files in This Document**
-- [README.md](file://README.md)
+- [schemas/__init__.py](file://schemas/__init__.py)
+- [schemas/inventory.json](file://schemas/inventory.json)
+- [schemas/group_vars.json](file://schemas/group_vars.json)
+- [schemas/host_vars.json](file://schemas/host_vars.json)
+- [group_vars/all.yml](file://group_vars/all.yml)
+- [host_vars/core-rtr-01-us-east.yml](file://host_vars/core-rtr-01-us-east.yml)
+- [inventories/production/hosts.yml](file://inventories/production/hosts.yml)
+- [.pre-commit-config.yaml](file://.pre-commit-config.yaml)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added comprehensive JSON Schema validation system with strict validation rules
+- Implemented Python-based validation engine with Draft7Validator
+- Created detailed schemas for inventory, group_vars, and host_vars files
+- Added IP address validation, enum constraints, and business logic enforcement
+- Integrated validation into CI/CD pipeline through pre-commit hooks
 
 ## Table of Contents
 1. [Introduction](#introduction)
-2. [Project Structure](#project-structure)
-3. [Core Components](#core-components)
-4. [Architecture Overview](#architecture-overview)
-5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+2. [Schema Architecture](#schema-architecture)
+3. [Core Validation Components](#core-validation-components)
+4. [Inventory Schema Definition](#inventory-schema-definition)
+5. [Group Variables Schema](#group-variables-schema)
+6. [Host Variables Schema](#host-variables-schema)
+7. [Validation Engine Implementation](#validation-engine-implementation)
+8. [CI/CD Integration](#cicd-integration)
+9. [Custom Network Validators](#custom-network-validators)
+10. [Error Reporting and Diagnostics](#error-reporting-and-diagnostics)
+11. [Best Practices and Guidelines](#best-practices-and-guidelines)
+12. [Troubleshooting Guide](#troubleshooting-guide)
 
 ## Introduction
 
-This document provides comprehensive guidance for implementing schema validation using jsonschema and cerberus in the Enterprise Network Automation Platform. The platform validates JSON/YAML schemas for inventories, group_vars, host_vars, and configuration templates to ensure data integrity and prevent invalid configurations from being deployed to production environments.
+The Enterprise Network Automation Platform implements comprehensive data validation and schema enforcement through JSON Schema definitions in the `schemas/` directory. This system validates group variables, host variables, and inventory structures with strict validation for IP addresses, required fields, enum values, and business logic constraints.
 
-The validation system serves as a critical quality gate in the CI/CD pipeline, catching configuration errors early in the development process and enforcing network-specific constraints through custom validators.
+The validation system serves as a critical quality gate in the development workflow, preventing invalid configurations from being deployed and ensuring consistency across multi-vendor, multi-region network environments.
 
-## Project Structure
+## Schema Architecture
 
-The schema validation system is integrated throughout the platform's architecture, with dedicated directories for schemas and validation logic:
+The schema validation system follows a hierarchical architecture with dedicated JSON Schema files for each configuration type:
 
 ```mermaid
 graph TB
-subgraph "Schema Validation Architecture"
-Schemas[Schema Definitions] --> Validators[Validation Engine]
-Validators --> CustomRules[Custom Network Rules]
-CustomRules --> ErrorReporting[Error Reporting]
-subgraph "Data Sources"
-Inventories[Inventories]
-GroupVars[group_vars]
-HostVars[host_vars]
-Templates[Configuration Templates]
+subgraph "Schema Layer"
+InventorySchema[inventory.json]
+GroupVarsSchema[group_vars.json]
+HostVarsSchema[host_vars.json]
 end
-subgraph "CI/CD Integration"
-PreCommit[Pre-commit Hooks]
-GitHubActions[GitHub Actions]
-Pipeline[CI Pipeline]
-end
-DataSources --> Schemas
-Schemas --> Validators
-PreCommit --> Validators
-GitHubActions --> Validators
-Pipeline --> Validators
-end
-```
-
-**Diagram sources**
-- [README.md:103-180](file://README.md#L103-L180)
-- [README.md:479-501](file://README.md#L479-L501)
-
-**Section sources**
-- [README.md:103-180](file://README.md#L103-L180)
-- [README.md:479-501](file://README.md#L479-L501)
-
-## Core Components
-
-The schema validation system consists of several key components that work together to provide comprehensive validation coverage:
-
-### Schema Definition Layer
-- **JSON Schema Files**: Define structure, types, and constraints for all configuration data
-- **Cerberus Validators**: Provide Python-based validation with custom business logic
-- **Network-Specific Rules**: Enforce vendor-specific and protocol-specific constraints
-
-### Validation Engine
-- **Multi-format Support**: Handles both JSON and YAML formats
-- **Hierarchical Validation**: Supports nested structures common in Ansible inventories
-- **Cross-field Validation**: Validates relationships between different fields
-
-### Error Reporting System
-- **Structured Error Messages**: Provides clear, actionable error feedback
-- **Contextual Information**: Includes file paths, line numbers, and field locations
-- **Severity Classification**: Categorizes errors by impact level
-
-**Section sources**
-- [README.md:438-456](file://README.md#L438-L456)
-- [README.md:517-544](file://README.md#L517-L544)
-
-## Architecture Overview
-
-The schema validation system integrates seamlessly into the existing CI/CD pipeline, providing multiple layers of validation:
-
-```mermaid
-sequenceDiagram
-participant Dev as Developer
-participant Git as Git Repository
-participant CI as CI/CD Pipeline
-participant Validator as Schema Validator
-participant Reporter as Error Reporter
-Dev->>Git : Push changes
-Git->>CI : Trigger workflow
-CI->>Validator : Load schemas and data
-Validator->>Validator : Validate inventories
-Validator->>Validator : Validate group_vars
-Validator->>Validator : Validate host_vars
-Validator->>Validator : Validate templates
-Validator->>Reporter : Report validation results
-Reporter-->>CI : Pass/Fail status
-CI-->>Dev : Validation results
-Note over Validator,Reporter : Custom network rules applied
-Note over CI,Dev : Failures block deployment
-```
-
-**Diagram sources**
-- [README.md:479-501](file://README.md#L479-L501)
-- [README.md:517-544](file://README.md#L517-L544)
-
-## Detailed Component Analysis
-
-### Inventory Schema Validation
-
-Inventory files define device topology and must conform to strict structural requirements:
-
-#### Core Inventory Fields
-- **Device Identification**: hostname, ansible_host, vendor, platform
-- **Location Context**: region, site, rack, position
-- **Role Assignment**: role, function, priority
-- **Connection Details**: credentials, protocols, timeouts
-
-#### Validation Rules
-- **Required Fields**: All core identification fields must be present
-- **Value Constraints**: Valid vendor/platform combinations enforced
-- **Format Validation**: IP addresses, hostnames, and identifiers validated
-- **Relationship Checks**: Cross-references between devices validated
-
-### Group Variables Schema
-
-Group variables define shared configuration for device categories:
-
-#### Supported Groups
-- **By Role**: core_routers, distribution_switches, access_switches, firewalls
-- **By Vendor**: cisco_devices, juniper_devices, arista_devices
-- **By Region**: us_east, us_west, eu_west, apac
-- **By Function**: wan_edge, internet_edge, vpn_gateways
-
-#### Validation Requirements
-- **Template Compatibility**: Variables must match template expectations
-- **Security Policies**: Password policies, cipher suites, authentication methods
-- **Network Standards**: VLAN ranges, IP addressing schemes, routing protocols
-
-### Host Variables Schema
-
-Host-specific variables override group-level settings:
-
-#### Device-Specific Configuration
-- **Interface Definitions**: Port mappings, VLAN assignments, descriptions
-- **Protocol Parameters**: OSPF areas, BGP peers, ACL definitions
-- **Service Configurations**: SNMP communities, syslog servers, NTP pools
-- **Monitoring Settings**: Alert thresholds, collection intervals, retention
-
-#### Custom Network Validators
-- **IP Address Validation**: Ensures proper subnet membership and availability
-- **Port Range Validation**: Validates interface numbers and port channel IDs
-- **Protocol Compliance**: Enforces vendor-specific syntax and parameter limits
-- **Security Policy Enforcement**: Validates against organizational security baselines
-
-### Configuration Template Validation
-
-Jinja2 templates require validation for both syntax and semantic correctness:
-
-#### Template Structure Validation
-- **Variable References**: All referenced variables must exist in inventory
-- **Conditional Logic**: Template conditionals must evaluate correctly
-- **Loop Structures**: Iteration patterns must have valid termination conditions
-- **Filter Functions**: Jinja2 filters must be supported and properly used
-
-#### Semantic Validation
-- **Configuration Completeness**: Required sections present for each device type
-- **Vendor Compatibility**: Template output compatible with target platform
-- **Best Practices**: Follows vendor-specific configuration guidelines
-
-**Section sources**
-- [README.md:284-335](file://README.md#L284-L335)
-- [README.md:116-128](file://README.md#L116-L128)
-
-## Dependency Analysis
-
-The schema validation system has well-defined dependencies and integration points:
-
-```mermaid
-graph TD
-subgraph "External Dependencies"
-JsonSchema[jsonschema library]
-Cerberus[cerberus library]
-PyYAML[PyYAML parser]
-Jinja2[Jinja2 templating]
-end
-subgraph "Internal Modules"
-SchemaLoader[Schema Loader]
+subgraph "Validation Engine"
+SchemaValidator[SchemaValidator Class]
+Draft7Validator[JSON Schema Draft 7]
 ValidationError[Error Handler]
-CustomValidators[Custom Validators]
-ReportGenerator[Report Generator]
+end
+subgraph "Data Sources"
+Inventories[inventories/**/*.yml]
+GroupVars[group_vars/*.yml]
+HostVars[host_vars/*.yml]
 end
 subgraph "Integration Points"
 PreCommit[Pre-commit Hooks]
-GitHubActions[GitHub Actions]
-Ansible[Ansible Engine]
-ConfigGen[Config Generator]
+CLI[Command Line Interface]
+API[Python API]
 end
-JsonSchema --> SchemaLoader
-Cerberus --> SchemaLoader
-PyYAML --> SchemaLoader
-Jinja2 --> SchemaLoader
-SchemaLoader --> CustomValidators
-CustomValidators --> ValidationError
-ValidationError --> ReportGenerator
-PreCommit --> SchemaLoader
-GitHubActions --> SchemaLoader
-Ansible --> SchemaLoader
-ConfigGen --> SchemaLoader
+DataSources --> SchemaValidator
+SchemaValidator --> Draft7Validator
+Draft7Validator --> InventorySchema
+Draft7Validator --> GroupVarsSchema
+Draft7Validator --> HostVarsSchema
+SchemaValidator --> ValidationError
+PreCommit --> SchemaValidator
+CLI --> SchemaValidator
+API --> SchemaValidator
 ```
 
 **Diagram sources**
-- [README.md:438-456](file://README.md#L438-L456)
-- [README.md:517-544](file://README.md#L517-L544)
+- [schemas/__init__.py:14-96](file://schemas/__init__.py#L14-L96)
+- [schemas/inventory.json:1-155](file://schemas/inventory.json#L1-155)
+- [schemas/group_vars.json:1-216](file://schemas/group_vars.json#L1-216)
+- [schemas/host_vars.json:1-331](file://schemas/host_vars.json#L1-331)
+
+## Core Validation Components
+
+### Schema Definition Layer
+The platform uses JSON Schema Draft 7 for defining validation rules across three primary configuration types:
+
+- **Inventory Schema**: Validates Ansible inventory structure, device properties, and relationships
+- **Group Variables Schema**: Enforces security policies, network standards, and compliance requirements
+- **Host Variables Schema**: Ensures device-specific configurations meet technical and operational standards
+
+### Validation Engine
+A Python-based validation engine provides:
+
+- **Multi-format Support**: Handles both JSON and YAML formats seamlessly
+- **Hierarchical Validation**: Supports nested structures common in Ansible inventories
+- **Cross-field Validation**: Validates relationships between different fields and sections
+- **Comprehensive Error Reporting**: Provides structured error messages with file paths and field locations
+
+### Business Logic Enforcement
+The system enforces network-specific constraints including:
+
+- **IP Address Validation**: Ensures proper subnet membership and availability
+- **Vendor Compatibility**: Validates vendor/platform combinations
+- **Security Policies**: Enforces cipher suites, authentication methods, and access controls
+- **Network Standards**: Validates VLAN ranges, routing protocols, and interface configurations
 
 **Section sources**
-- [README.md:438-456](file://README.md#L438-L456)
-- [README.md:517-544](file://README.md#L517-L544)
+- [schemas/__init__.py:14-96](file://schemas/__init__.py#L14-L96)
+- [schemas/inventory.json:57-152](file://schemas/inventory.json#L57-L152)
+- [schemas/group_vars.json:7-212](file://schemas/group_vars.json#L7-L212)
+- [schemas/host_vars.json:7-327](file://schemas/host_vars.json#L7-L327)
 
-## Performance Considerations
+## Inventory Schema Definition
 
-Schema validation performance is critical for maintaining fast CI/CD pipelines:
+The inventory schema enforces strict structural requirements for device topology definitions:
 
-### Optimization Strategies
-- **Schema Caching**: Load and cache schemas to avoid repeated parsing
-- **Parallel Validation**: Process independent files concurrently
-- **Incremental Validation**: Only validate changed files in large repositories
-- **Lazy Loading**: Load schemas on-demand rather than at startup
+### Core Device Properties
+All devices must include these required fields:
 
-### Memory Management
-- **Streaming Processing**: Handle large inventory files without loading entirely into memory
-- **Resource Cleanup**: Properly release resources after validation completes
-- **Batch Processing**: Process files in batches to manage memory usage
+- **ansible_host**: IP address or FQDN with format validation
+- **vendor**: Enumerated list of supported vendors (cisco, juniper, arista, paloalto, fortinet, etc.)
+- **platform**: Vendor-specific platform identifiers (ios-xe, eos, panos, fortios, etc.)
+- **role**: Device role classification (core_router, distribution_switch, firewall, etc.)
+- **region**: Geographic region assignment (us-east, us-west, eu-west, apac-east, etc.)
 
-### Scalability Considerations
-- **Horizontal Scaling**: Distribute validation across multiple workers
-- **Queue-based Processing**: Use message queues for high-volume validation tasks
-- **Result Caching**: Cache validation results for unchanged files
+### Advanced Validation Rules
+The schema includes sophisticated validation patterns:
+
+- **Hostname Pattern Matching**: `^[a-zA-Z0-9][-a-zA-Z0-9]*$` for valid device names
+- **Port Range Validation**: SSH port numbers constrained to 1-65535
+- **VLAN Range Enforcement**: Valid VLAN IDs restricted to 1-4094
+- **Interface Naming Conventions**: Pattern-based validation for interface identifiers
+
+### Hierarchical Structure Support
+The schema supports complex inventory hierarchies:
+
+```yaml
+all:
+  children:
+    core_routers:
+      hosts:
+        core-rtr-01-us-east:
+          ansible_host: 10.0.1.1
+          vendor: cisco
+          platform: ios-xe
+          role: core_router
+          region: us-east
+```
+
+**Section sources**
+- [schemas/inventory.json:57-152](file://schemas/inventory.json#L57-L152)
+- [inventories/production/hosts.yml:33-86](file://inventories/production/hosts.yml#L33-L86)
+
+## Group Variables Schema
+
+Group variables define shared configuration policies and security baselines:
+
+### Security Configuration Requirements
+- **AAA Authentication**: Required TACACS+ or RADIUS server configuration with minimum 2 servers
+- **SNMPv3 Enforcement**: Only SNMPv3 allowed with strong authentication and encryption
+- **SSH Hardening**: Approved cipher suites and key exchange algorithms enforced
+- **Syslog Configuration**: Minimum 2 syslog servers with severity filtering
+
+### Network Service Definitions
+- **NTP Servers**: Minimum 2 servers with redundancy configuration
+- **DNS Configuration**: Domain search lists and resolver settings
+- **Management VRF**: Dedicated management network isolation
+- **Backup Policies**: Automated backup scheduling and retention
+
+### Compliance Baseline Enforcement
+- **Golden Config Version**: Tracks approved configuration versions
+- **Approved Firmware List**: Validates device firmware against organizational standards
+- **Banner Requirements**: Legal and informational banner content enforcement
+- **Timezone Configuration**: Standardized timezone formatting
+
+**Section sources**
+- [schemas/group_vars.json:7-212](file://schemas/group_vars.json#L7-L212)
+- [group_vars/all.yml:7-180](file://group_vars/all.yml#L7-L180)
+
+## Host Variables Schema
+
+Host-specific variables override group-level settings with device-specific configurations:
+
+### Interface Management
+- **Interface Definitions**: Comprehensive interface configuration with IP addressing
+- **VLAN Configuration**: Access, trunk, and routed interface modes
+- **STP Settings**: Spanning tree protocol parameters and portfast/bpduguard
+- **Storm Control**: Broadcast/multicast/unicast storm protection
+
+### Routing Protocol Configuration
+- **OSPF Areas**: Area types, authentication, and network advertisements
+- **BGP Peering**: Neighbor configuration with AS numbers and authentication
+- **Static Routes**: Route definitions with next-hop and tracking
+- **ACL Management**: Named ACLs with permit/deny entries
+
+### Advanced Network Features
+- **Port Channels**: LACP configuration with member interfaces
+- **NAT Policies**: Static, dynamic, and PAT NAT rules
+- **QoS Policies**: Traffic classification and bandwidth management
+- **Loopback Interfaces**: Router ID and service loopbacks
+
+**Section sources**
+- [schemas/host_vars.json:7-327](file://schemas/host_vars.json#L7-L327)
+- [host_vars/core-rtr-01-us-east.yml:6-103](file://host_vars/core-rtr-01-us-east.yml#L6-L103)
+
+## Validation Engine Implementation
+
+The Python-based validation engine provides a robust foundation for schema enforcement:
+
+### Core Validation Class
+The `SchemaValidator` class encapsulates all validation logic:
+
+```python
+class SchemaValidator:
+    """Validates YAML files against JSON schemas."""
+    
+    def __init__(self, schemas_dir: str | Path | None = None):
+        self.schemas_dir = Path(schemas_dir)
+        self._schemas: dict[str, dict[str, Any]] = {}
+```
+
+### Validation Methods
+The engine provides specialized validation methods:
+
+- **validate()**: Generic validation method for any schema
+- **validate_inventory()**: Specific validation for inventory files
+- **validate_group_vars()**: Group variables validation
+- **validate_host_vars()**: Host-specific variables validation
+- **validate_all()**: Batch validation across entire project structure
+
+### Error Handling and Reporting
+Comprehensive error reporting includes:
+
+- **Structured Error Messages**: Clear, actionable feedback with field paths
+- **File Location Tracking**: Precise identification of validation failures
+- **Severity Classification**: Categorization by impact level
+- **Batch Processing**: Efficient validation of multiple files
+
+**Section sources**
+- [schemas/__init__.py:14-96](file://schemas/__init__.py#L14-L96)
+- [schemas/__init__.py:74-160](file://schemas/__init__.py#L74-L160)
+
+## CI/CD Integration
+
+The validation system integrates seamlessly into the development workflow:
+
+### Pre-commit Hook Integration
+The `.pre-commit-config.yaml` file includes comprehensive validation hooks:
+
+- **YAML Validation**: Syntax and structure checking
+- **JSON Schema Validation**: Custom schema enforcement
+- **Security Scanning**: Secret detection and vulnerability scanning
+- **Code Quality**: Linting and formatting checks
+
+### Pipeline Integration Points
+The validation system operates at multiple stages:
+
+1. **Development Stage**: Local pre-commit validation
+2. **Pull Request Stage**: Automated validation in CI pipeline
+3. **Deployment Stage**: Final validation before production deployment
+
+### Command Line Interface
+Direct command-line usage for manual validation:
+
+```bash
+# Validate all files
+python -m schemas
+
+# Validate specific file
+python -m schemas --file inventories/production/hosts.yml
+
+# Get detailed error reports
+python -m schemas --verbose
+```
+
+**Section sources**
+- [.pre-commit-config.yaml:1-66](file://.pre-commit-config.yaml#L1-L66)
+- [schemas/__init__.py:163-192](file://schemas/__init__.py#L163-L192)
+
+## Custom Network Validators
+
+The validation system includes specialized validators for network-specific constraints:
+
+### IP Address Validation
+- **IPv4 Format Validation**: Proper subnet notation and range checking
+- **Reserved Address Detection**: Prevents use of reserved IP ranges
+- **Subnet Overlap Detection**: Identifies conflicting network assignments
+
+### Vendor-Specific Validation
+- **Platform Compatibility**: Ensures vendor/platform combinations are valid
+- **Feature Availability**: Validates feature support per platform version
+- **Syntax Compliance**: Enforces vendor-specific configuration syntax
+
+### Security Policy Enforcement
+- **Cipher Suite Validation**: Ensures only approved cryptographic algorithms
+- **Authentication Method Checks**: Validates AAA configuration compliance
+- **Access Control Lists**: Verifies ACL rules follow organizational standards
+
+### Business Logic Constraints
+- **Role-Based Validation**: Different rules apply based on device role
+- **Region-Specific Policies**: Geographic compliance requirements
+- **Environment Restrictions**: Development vs. production differences
+
+## Error Reporting and Diagnostics
+
+The validation system provides comprehensive error reporting and diagnostic capabilities:
+
+### Structured Error Messages
+Errors include detailed context information:
+
+- **Field Path**: Complete path to the problematic field
+- **Expected Value**: Description of what was expected
+- **Actual Value**: What was actually provided
+- **Suggested Fix**: Actionable remediation steps
+
+### Validation Report Generation
+Comprehensive reports include:
+
+- **Summary Statistics**: Total files validated, pass/fail counts
+- **Error Categorization**: Grouped by type and severity
+- **Trend Analysis**: Historical validation performance
+- **Compliance Metrics**: Adherence to organizational standards
+
+### Integration with Monitoring Systems
+Validation results can be exported to monitoring systems:
+
+- **Prometheus Metrics**: Validation success rates and error counts
+- **Grafana Dashboards**: Visual representation of validation health
+- **Alerting Integration**: Notifications for validation failures
+
+## Best Practices and Guidelines
+
+### Schema Design Principles
+- **Defensive Programming**: Assume worst-case input scenarios
+- **Clear Error Messages**: Provide actionable guidance for fixes
+- **Backward Compatibility**: Maintain compatibility across schema versions
+- **Performance Optimization**: Efficient validation for large datasets
+
+### Validation Strategy Recommendations
+- **Layered Validation**: Multiple levels of validation depth
+- **Incremental Validation**: Validate changed files only when possible
+- **Parallel Processing**: Concurrent validation for improved performance
+- **Caching Strategies**: Cache frequently accessed schemas and results
+
+### Testing and Quality Assurance
+- **Unit Tests**: Comprehensive test coverage for all validation rules
+- **Integration Tests**: End-to-end validation workflow testing
+- **Regression Testing**: Ensure schema changes don't break existing functionality
+- **Performance Testing**: Validate performance under load conditions
 
 ## Troubleshooting Guide
 
-Common schema validation issues and their resolutions:
+### Common Validation Issues
 
-### Schema Definition Errors
-- **Invalid JSON/YAML Syntax**: Ensure proper formatting and escaping
-- **Missing Required Fields**: Check schema definitions for required attributes
-- **Type Mismatches**: Verify data types match schema specifications
+#### Schema Definition Errors
+- **Invalid JSON/YAML Syntax**: Check schema file formatting and escaping
+- **Missing Required Fields**: Verify all mandatory attributes are present
+- **Type Mismatches**: Ensure data types match schema specifications
 - **Constraint Violations**: Review custom validator rules and business logic
 
-### Validation Performance Issues
+#### Performance Issues
 - **Slow Validation Times**: Implement caching and parallel processing
 - **High Memory Usage**: Optimize data loading and processing strategies
 - **Pipeline Bottlenecks**: Profile validation steps and optimize hot paths
 
-### Integration Problems
+#### Integration Problems
 - **CI/CD Pipeline Failures**: Check environment setup and dependency versions
 - **Pre-commit Hook Issues**: Verify hook installation and configuration
 - **Ansible Integration**: Ensure compatibility with Ansible variable resolution
 
+### Diagnostic Tools and Commands
+
+#### Manual Validation
+```bash
+# Run validation with verbose output
+python -m schemas --verbose
+
+# Validate specific file types
+python -m schemas --type inventory
+
+# Generate detailed error report
+python -m schemas --report ./validation_report.json
+```
+
+#### Debug Mode
+Enable debug logging for detailed troubleshooting:
+
+```bash
+export SCHEMA_VALIDATOR_DEBUG=1
+python -m schemas
+```
+
 **Section sources**
-- [README.md:674-685](file://README.md#L674-L685)
-
-## Conclusion
-
-The schema validation system provides essential quality gates for the Enterprise Network Automation Platform, ensuring configuration integrity and preventing deployment of invalid or non-compliant network configurations. By leveraging jsonschema for structural validation and cerberus for custom business logic, the platform achieves comprehensive coverage of validation requirements while maintaining performance and scalability.
-
-The integration with CI/CD pipelines ensures that validation occurs at every stage of the development lifecycle, from local development through production deployment. This approach significantly reduces the risk of configuration errors reaching production environments and improves overall system reliability.
-
-## Appendices
-
-### Best Practices for Schema Versioning
-
-1. **Semantic Versioning**: Use MAJOR.MINOR.PATCH versioning for schema changes
-2. **Backward Compatibility**: Maintain compatibility within major versions
-3. **Deprecation Strategy**: Gradually phase out deprecated fields with warnings
-4. **Migration Tools**: Provide automated migration scripts for schema updates
-
-### Testing Strategy
-
-1. **Unit Tests**: Test individual schema definitions and validators
-2. **Integration Tests**: Validate complete workflows end-to-end
-3. **Regression Tests**: Ensure schema changes don't break existing functionality
-4. **Performance Tests**: Monitor validation performance under load
-
-### Security Considerations
-
-1. **Input Sanitization**: Validate and sanitize all input data
-2. **Resource Limits**: Prevent denial-of-service through resource exhaustion
-3. **Audit Logging**: Log validation activities for security monitoring
-4. **Access Control**: Restrict schema modification permissions
+- [schemas/__init__.py:74-96](file://schemas/__init__.py#L74-L96)
+- [schemas/__init__.py:163-192](file://schemas/__init__.py#L163-L192)

@@ -1,0 +1,1 @@
+Bootstrap via `pip install -r requirements.txt`, `ansible-galaxy collection install -r requirements.yml`, `pre-commit install`, then validate with `python scripts/validate_environment.py`. First playbook run uses `-i inventories/lab/hosts.yml --check --diff`; config generation is invoked as `python -m python.config_gen --device <name> --output ./output/`.

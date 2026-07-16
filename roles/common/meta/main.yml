@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  role_name: common
+  author: Network Automation Team
+  description: Common base configuration for all network devices
+  company: Example Corp
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: cisco_ios
+      versions:
+        - all
+    - name: cisco_nxos
+      versions:
+        - all
+    - name: arista_eos
+      versions:
+        - all
+    - name: juniper_junos
+      versions:
+        - all
+  galaxy_tags:
+    - network
+    - automation
+    - baseline
+    - common
+
+dependencies: []

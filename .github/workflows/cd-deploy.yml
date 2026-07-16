@@ -1,0 +1,146 @@
+---
+name: CD - Deploy
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options: [staging, production]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging'
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Ansible
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Authenticate to Vault (OIDC)
+        uses: hashicorp/vault-action@v2
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          role: ${{ secrets.VAULT_ROLE }}
+          method: jwt
+          jwtGithubAudience: vault
+          secrets: |
+            secret/data/network-automation/staging/ansible ANSIBLE_VAULT_PASSWORD | ANSIBLE_VAULT_PASSWORD
+
+      - name: Ansible Dry Run
+        run: |
+          ansible-playbook playbooks/initial_provisioning.yml \
+            -i inventories/staging/hosts.yml \
+            --check --diff
+
+      - name: Deploy to Staging
+        run: |
+          ansible-playbook playbooks/initial_provisioning.yml \
+            -i inventories/staging/hosts.yml \
+            --diff
+
+      - name: Post-Deploy Verification
+        run: |
+          ansible-playbook playbooks/health_check.yml \
+            -i inventories/staging/hosts.yml
+
+      - name: Run Compliance Scan
+        run: |
+          ansible-playbook playbooks/compliance_scan.yml \
+            -i inventories/staging/hosts.yml
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://grafana.example.com/d/network-health
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Ansible
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Authenticate to Vault (OIDC)
+        uses: hashicorp/vault-action@v2
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          role: ${{ secrets.VAULT_ROLE }}
+          method: jwt
+          jwtGithubAudience: vault
+          secrets: |
+            secret/data/network-automation/production/ansible ANSIBLE_VAULT_PASSWORD | ANSIBLE_VAULT_PASSWORD
+
+      - name: Backup Before Deploy
+        run: |
+          ansible-playbook playbooks/backup.yml \
+            -i inventories/production/hosts.yml
+
+      - name: Ansible Dry Run
+        run: |
+          ansible-playbook playbooks/initial_provisioning.yml \
+            -i inventories/production/hosts.yml \
+            --check --diff
+
+      - name: Deploy to Production (Rolling)
+        run: |
+          ansible-playbook playbooks/initial_provisioning.yml \
+            -i inventories/production/hosts.yml \
+            --diff --serial=2
+
+      - name: Post-Deploy Health Check
+        run: |
+          ansible-playbook playbooks/health_check.yml \
+            -i inventories/production/hosts.yml
+
+      - name: Post-Deploy Compliance Scan
+        run: |
+          ansible-playbook playbooks/compliance_scan.yml \
+            -i inventories/production/hosts.yml
+
+      - name: Notify on Success
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-type: application/json' \
+            -d '{"text":"✅ Production deployment completed successfully"}'
+
+      - name: Auto-Rollback on Failure
+        if: failure()
+        run: |
+          ansible-playbook playbooks/config_rollback.yml \
+            -i inventories/production/hosts.yml
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-type: application/json' \
+            -d '{"text":"❌ Production deployment failed - auto-rollback initiated"}'

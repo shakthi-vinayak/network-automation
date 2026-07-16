@@ -1,0 +1,109 @@
+---
+# =============================================================================
+# Prometheus Alerting Rules
+# =============================================================================
+
+groups:
+  - name: network_device_alerts
+    rules:
+      # Device down
+      - alert: NetworkDeviceDown
+        expr: snmp_scrape_walk_duration_seconds{job="network_devices_snmp"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Network device {{ $labels.instance }} is unreachable"
+          description: "SNMP polling failed for {{ $labels.instance }} for more than 5 minutes"
+
+      # High CPU utilization
+      - alert: NetworkDeviceHighCPU
+        expr: (snmp_ifInOctets - snmp_ifOutOctets) / snmp_ifSpeed > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU utilization above 85% for 10 minutes"
+
+      # High memory utilization
+      - alert: NetworkDeviceHighMemory
+        expr: ciscoMemoryPoolUsed / ciscoMemoryPoolFree > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory on {{ $labels.instance }}"
+          description: "Memory utilization above 85% for 10 minutes"
+
+      # Interface down
+      - alert: NetworkInterfaceDown
+        expr: ifOperStatus == 2 and ifAdminStatus == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Interface {{ $labels.ifName }} down on {{ $labels.instance }}"
+          description: "Interface {{ $labels.ifName }} is administratively up but operationally down"
+
+      # Interface high utilization
+      - alert: NetworkInterfaceHighUtilization
+        expr: (rate(ifInOctets[5m]) * 8) / ifSpeed > 0.80
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High utilization on {{ $labels.ifName }} ({{ $labels.instance }})"
+          description: "Interface utilization above 80% for 15 minutes"
+
+      # BGP session down
+      - alert: BGPSessionDown
+        expr: bgpPeerState != 6
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "BGP session down on {{ $labels.instance }}"
+          description: "BGP peer {{ $labels.bgpPeerRemoteAs }} is not in Established state"
+
+  - name: automation_platform_alerts
+    rules:
+      # Automation job failure
+      - alert: AutomationJobFailure
+        expr: automation_job_failures_total > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Automation job failure detected"
+          description: "{{ $value }} automation job(s) have failed"
+
+      # Configuration drift detected
+      - alert: ConfigurationDrift
+        expr: config_drift_detected > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Configuration drift on {{ $labels.device }}"
+          description: "Running config differs from Git baseline"
+
+      # Compliance violation
+      - alert: ComplianceViolation
+        expr: compliance_violations_total > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Compliance violation detected on {{ $labels.device }}"
+          description: "{{ $value }} compliance violation(s) found"
+
+      # Backup failure
+      - alert: BackupFailure
+        expr: backup_last_success_timestamp < (time() - 86400)
+        for: 1h
+        labels:
+          severity: high
+        annotations:
+          summary: "Backup stale for {{ $labels.device }}"
+          description: "No successful backup in over 24 hours"

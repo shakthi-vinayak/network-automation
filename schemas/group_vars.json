@@ -1,0 +1,215 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://network-automation.example.com/schemas/group_vars.json",
+  "title": "Group Variables Schema",
+  "description": "Validation schema for Ansible group_vars files",
+  "type": "object",
+  "properties": {
+    "ntp_servers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ip", "prefer"],
+        "properties": {
+          "ip": {"type": "string", "format": "ipv4"},
+          "prefer": {"type": "boolean"},
+          "key_id": {"type": "integer"},
+          "version": {"type": "integer", "enum": [3, 4]}
+        }
+      },
+      "minItems": 2,
+      "description": "NTP servers - minimum 2 for redundancy"
+    },
+    "dns_servers": {
+      "type": "array",
+      "items": {"type": "string", "format": "ipv4"},
+      "minItems": 2,
+      "description": "DNS servers - minimum 2 for redundancy"
+    },
+    "dns_domain": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][-a-zA-Z0-9]*\\.[a-zA-Z]{2,}$"
+    },
+    "domain_search": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "aaa": {
+      "type": "object",
+      "required": ["protocol", "servers"],
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "enum": ["tacacs+", "radius", "local"]
+        },
+        "servers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["ip"],
+            "properties": {
+              "ip": {"type": "string", "format": "ipv4"},
+              "key": {"type": "string"},
+              "port": {"type": "integer"},
+              "priority": {"type": "integer"}
+            }
+          },
+          "minItems": 2
+        },
+        "authentication": {
+          "type": "object",
+          "properties": {
+            "login": {"type": "string"},
+            "enable": {"type": "string"}
+          }
+        },
+        "authorization": {
+          "type": "object",
+          "properties": {
+            "exec": {"type": "string"},
+            "config_commands": {"type": "string"}
+          }
+        },
+        "accounting": {
+          "type": "object",
+          "properties": {
+            "exec": {"type": "string"},
+            "commands": {
+              "type": "array",
+              "items": {"type": "integer"}
+            }
+          }
+        }
+      }
+    },
+    "snmp": {
+      "type": "object",
+      "required": ["version"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "enum": ["v3"]
+        },
+        "contact": {"type": "string"},
+        "location": {"type": "string"},
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "auth", "priv"],
+            "properties": {
+              "name": {"type": "string"},
+              "auth": {"type": "string", "enum": ["md5", "sha", "sha-256", "sha-512"]},
+              "priv": {"type": "string", "enum": ["aes-128", "aes-192", "aes-256", "des"]},
+              "users": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name"],
+                  "properties": {
+                    "name": {"type": "string"},
+                    "auth_key": {"type": "string"},
+                    "priv_key": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "communities": {
+          "type": "array",
+          "description": "SNMPv1/v2c communities - should be empty for compliance",
+          "items": {"type": "string"},
+          "maxItems": 0
+        }
+      }
+    },
+    "syslog": {
+      "type": "object",
+      "required": ["servers"],
+      "properties": {
+        "servers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["ip"],
+            "properties": {
+              "ip": {"type": "string", "format": "ipv4"},
+              "port": {"type": "integer", "default": 514},
+              "severity": {
+                "type": "string",
+                "enum": ["emergency", "alert", "critical", "error", "warning", "notification", "informational", "debugging"]
+              },
+              "vrf": {"type": "string"},
+              "protocol": {"type": "string", "enum": ["udp", "tcp"]}
+            }
+          },
+          "minItems": 2
+        },
+        "source_interface": {"type": "string"},
+        "facility": {"type": "string"},
+        "buffer_size": {"type": "integer"},
+        "timestamp": {"type": "string"}
+      }
+    },
+    "ssh": {
+      "type": "object",
+      "properties": {
+        "version": {"type": "integer", "enum": [2]},
+        "timeout": {"type": "integer"},
+        "authentication_retries": {"type": "integer"},
+        "max_sessions": {"type": "integer"},
+        "ciphers": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Approved SSH ciphers"
+        },
+        "mac_algorithms": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "key_exchange": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "host_key_algorithms": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "banner": {
+      "type": "object",
+      "properties": {
+        "login": {"type": "string"},
+        "motd": {"type": "string"},
+        "exec": {"type": "string"}
+      }
+    },
+    "management_vrf": {
+      "type": "string"
+    },
+    "timezone": {
+      "type": "string",
+      "pattern": "^[A-Z]{3,5} [-+]?[0-9]{1,2}$"
+    },
+    "golden_config_version": {
+      "type": "string"
+    },
+    "approved_firmware": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "backup": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "schedule": {"type": "string"},
+        "retention_days": {"type": "integer"},
+        "encrypt": {"type": "boolean"},
+        "destination": {"type": "string"}
+      }
+    }
+  },
+  "additionalProperties": true
+}

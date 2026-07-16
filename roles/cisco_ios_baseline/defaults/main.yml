@@ -1,0 +1,5 @@
+---
+# Cisco IOS Baseline - Defaults
+cisco_ios_template: cisco_ios/base_config.j2
+cisco_ios_save_config: true
+cisco_ios_backup_before_changes: true

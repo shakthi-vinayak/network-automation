@@ -1,0 +1,330 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://network-automation.example.com/schemas/host_vars.json",
+  "title": "Host Variables Schema",
+  "description": "Validation schema for Ansible host_vars files",
+  "type": "object",
+  "properties": {
+    "hostname": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,63}$",
+      "description": "Device hostname"
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "enabled": {"type": "boolean"},
+          "speed": {"type": "string"},
+          "duplex": {"type": "string", "enum": ["full", "half", "auto"]},
+          "mtu": {"type": "integer", "minimum": 68, "maximum": 9216},
+          "ip": {
+            "type": "object",
+            "properties": {
+              "address": {"type": "string"},
+              "mask": {"type": "string"},
+              "prefix_length": {"type": "integer", "minimum": 0, "maximum": 128}
+            }
+          },
+          "ipv6": {
+            "type": "object",
+            "properties": {
+              "address": {"type": "string"},
+              "prefix_length": {"type": "integer"}
+            }
+          },
+          "vlan": {"type": "integer", "minimum": 1, "maximum": 4094},
+          "access_vlan": {"type": "integer", "minimum": 1, "maximum": 4094},
+          "native_vlan": {"type": "integer", "minimum": 1, "maximum": 4094},
+          "allowed_vlans": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 1, "maximum": 4094}
+          },
+          "mode": {"type": "string", "enum": ["access", "trunk", "routed"]},
+          "lacp_group": {"type": "integer"},
+          "channel_group": {"type": "string"},
+          "storm_control": {
+            "type": "object",
+            "properties": {
+              "broadcast": {"type": "string"},
+              "multicast": {"type": "string"},
+              "unicast": {"type": "string"}
+            }
+          },
+          "spanning_tree": {
+            "type": "object",
+            "properties": {
+              "portfast": {"type": "boolean"},
+              "bpduguard": {"type": "boolean"},
+              "guard": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "vlans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {"type": "integer", "minimum": 1, "maximum": 4094},
+          "name": {"type": "string"},
+          "state": {"type": "string", "enum": ["active", "suspend"]},
+          "shutdown": {"type": "boolean"},
+          "ip_address": {"type": "string"},
+          "subnet_mask": {"type": "string"},
+          "hsrp": {
+            "type": "object",
+            "properties": {
+              "group": {"type": "integer"},
+              "ip": {"type": "string"},
+              "priority": {"type": "integer"},
+              "preempt": {"type": "boolean"},
+              "authentication": {"type": "string"}
+            }
+          },
+          "vrrp": {
+            "type": "object",
+            "properties": {
+              "group": {"type": "integer"},
+              "ip": {"type": "string"},
+              "priority": {"type": "integer"},
+              "preempt": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "properties": {
+        "ospf": {
+          "type": "object",
+          "properties": {
+            "process_id": {"type": "integer"},
+            "router_id": {"type": "string", "format": "ipv4"},
+            "areas": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": {"type": "string"},
+                  "type": {"type": "string", "enum": ["standard", "stub", "nssa", "totally-stub"]},
+                  "authentication": {"type": "string"},
+                  "networks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "network": {"type": "string"},
+                        "wildcard": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "passive_interfaces": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "redistribute": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        },
+        "bgp": {
+          "type": "object",
+          "properties": {
+            "asn": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+            "router_id": {"type": "string", "format": "ipv4"},
+            "neighbors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["ip", "remote_as"],
+                "properties": {
+                  "ip": {"type": "string"},
+                  "remote_as": {"type": "integer"},
+                  "description": {"type": "string"},
+                  "password": {"type": "string"},
+                  "update_source": {"type": "string"},
+                  "ebgp_multihop": {"type": "integer"},
+                  "route_maps": {
+                    "type": "object",
+                    "properties": {
+                      "in": {"type": "string"},
+                      "out": {"type": "string"}
+                    }
+                  }
+                }
+              }
+            },
+            "networks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "prefix": {"type": "string"},
+                  "mask": {"type": "string"}
+                }
+              }
+            },
+            "redistribute": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "aggregates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "prefix": {"type": "string"},
+                  "summary_only": {"type": "boolean"}
+                }
+              }
+            }
+          }
+        },
+        "static_routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["prefix", "next_hop"],
+            "properties": {
+              "prefix": {"type": "string"},
+              "mask": {"type": "string"},
+              "next_hop": {"type": "string"},
+              "distance": {"type": "integer"},
+              "name": {"type": "string"},
+              "vrf": {"type": "string"},
+              "track": {"type": "integer"}
+            }
+          }
+        }
+      }
+    },
+    "acl": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string", "enum": ["standard", "extended", "prefix-list"]},
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["action", "sequence"],
+              "properties": {
+                "sequence": {"type": "integer"},
+                "action": {"type": "string", "enum": ["permit", "deny"]},
+                "protocol": {"type": "string"},
+                "source": {"type": "string"},
+                "destination": {"type": "string"},
+                "log": {"type": "boolean"},
+                "remark": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "nat": {
+      "type": "object",
+      "properties": {
+        "inside_interfaces": {"type": "array", "items": {"type": "string"}},
+        "outside_interfaces": {"type": "array", "items": {"type": "string"}},
+        "pools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "start_ip": {"type": "string"},
+              "end_ip": {"type": "string"},
+              "prefix_length": {"type": "integer"}
+            }
+          }
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {"type": "string", "enum": ["static", "dynamic", "pat"]},
+              "inside_local": {"type": "string"},
+              "inside_global": {"type": "string"},
+              "source_acl": {"type": "string"},
+              "pool": {"type": "string"},
+              "overload": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "loopbacks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "ip"],
+        "properties": {
+          "id": {"type": "integer"},
+          "ip": {"type": "string"},
+          "mask": {"type": "string"},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "port_channels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "members"],
+        "properties": {
+          "id": {"type": "integer"},
+          "description": {"type": "string"},
+          "mode": {"type": "string", "enum": ["active", "passive", "on"]},
+          "members": {"type": "array", "items": {"type": "string"}},
+          "min_links": {"type": "integer"},
+          "lacp_fast": {"type": "boolean"}
+        }
+      }
+    },
+    "qos": {
+      "type": "object",
+      "properties": {
+        "policy_maps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "classes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {"type": "string"},
+                    "priority": {"type": "string"},
+                    "bandwidth_percent": {"type": "integer"},
+                    "police_rate": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

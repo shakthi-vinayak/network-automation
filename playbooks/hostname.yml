@@ -1,0 +1,38 @@
+---
+# =============================================================================
+# Hostname Playbook - Set device hostname
+# =============================================================================
+
+- name: Configure Device Hostname
+  hosts: all
+  gather_facts: false
+  connection: ansible.netcommon.network_cli
+
+  tasks:
+    - name: Set hostname (Cisco IOS)
+      cisco.ios.ios_config:
+        lines:
+          - "hostname {{ hostname | default(inventory_hostname) }}"
+      when: vendor == 'cisco' and platform in ['ios', 'ios-xe']
+      tags: [hostname, cisco]
+
+    - name: Set hostname (Cisco NX-OS)
+      cisco.nxos.nxos_config:
+        lines:
+          - "hostname {{ hostname | default(inventory_hostname) }}"
+      when: vendor == 'cisco' and platform == 'nx-os'
+      tags: [hostname, cisco]
+
+    - name: Set hostname (Arista EOS)
+      arista.eos.eos_config:
+        lines:
+          - "hostname {{ hostname | default(inventory_hostname) }}"
+      when: vendor == 'arista'
+      tags: [hostname, arista]
+
+    - name: Set hostname (Juniper JunOS)
+      junipernetworks.junos.junos_config:
+        lines:
+          - "set system host-name {{ hostname | default(inventory_hostname) }}"
+      when: vendor == 'juniper'
+      tags: [hostname, juniper]

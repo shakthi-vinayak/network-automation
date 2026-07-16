@@ -1,0 +1,30 @@
+---
+# =============================================================================
+# Common Role - Handlers
+# =============================================================================
+
+- name: Save running configuration
+  ansible.builtin.debug:
+    msg: "Saving running configuration to startup on {{ inventory_hostname }}"
+  listen: save_config
+
+- name: Write memory (Cisco)
+  cisco.ios.ios_command:
+    commands:
+      - write memory
+  listen: save_config_cisco
+  when: vendor == 'cisco'
+
+- name: Save configuration (Arista)
+  arista.eos.eos_command:
+    commands:
+      - write memory
+  listen: save_config_arista
+  when: vendor == 'arista'
+
+- name: Commit configuration (Juniper)
+  junipernetworks.junos.junos_command:
+    commands:
+      - commit
+  listen: save_config_juniper
+  when: vendor == 'juniper'

@@ -1,0 +1,175 @@
+<?xml version="1.0"?>
+<!--
+=============================================================================
+Palo Alto PAN-OS Base Configuration Template (XML)
+=============================================================================
+Device: {{ hostname }} | Site: {{ site }} | Region: {{ region }}
+=============================================================================
+-->
+<config>
+  <devices>
+    <entry name="localhost.localdomain">
+      <deviceconfig>
+        <system>
+          <hostname>{{ hostname }}</hostname>
+          <domain>{{ dns_domain }}</domain>
+          <dns-setting>
+            <servers>
+              {% for dns in dns_servers %}
+              <primary>{{ dns_servers[0] }}</primary>
+              {% if loop.index > 1 %}
+              <secondary>{{ dns }}</secondary>
+              {% endif %}
+              {% endfor %}
+            </servers>
+          </dns-setting>
+          <ntp-servers>
+            <primary-ntp-server>
+              <ntp-server-address>{{ ntp_servers[0].ip }}</ntp-server-address>
+            </primary-ntp-server>
+            <secondary-ntp-server>
+              {% if ntp_servers | length > 1 %}
+              <ntp-server-address>{{ ntp_servers[1].ip }}</ntp-server-address>
+              {% endif %}
+            </secondary-ntp-server>
+          </ntp-servers>
+          <timezone>{{ timezone | default('UTC') }}</timezone>
+          <login-banner>{{ banner.login | trim }}</login-banner>
+          <management-interface>management</management-interface>
+        </system>
+        <setting>
+          <management>
+            <ssh>
+              <ciphers>
+                {% for cipher in ssh.ciphers %}
+                <entry name="{{ cipher }}"/>
+                {% endfor %}
+              </ciphers>
+            </ssh>
+          </management>
+        </setting>
+      </deviceconfig>
+
+      <network>
+        <interface>
+          <ethernet>
+            {% for iface in interfaces | default([]) %}
+            <entry name="{{ iface.name }}">
+              {% if iface.ip is defined %}
+              <layer3>
+                <ip>
+                  <entry name="{{ iface.ip.address }}/{{ iface.ip.prefix_length | default('24') }}"/>
+                </ip>
+                <comment>{{ iface.description | default('') }}</comment>
+              </layer3>
+              {% endif %}
+            </entry>
+            {% endfor %}
+          </ethernet>
+        </interface>
+      </network>
+
+      <vsys>
+        <entry name="vsys1">
+          <!-- Zones -->
+          <zone>
+            {% for zone in zones | default([]) %}
+            <entry name="{{ zone.name }}">
+              <network>
+                <layer3>
+                  {% for iface in zone.interfaces %}
+                  <member>{{ iface }}</member>
+                  {% endfor %}
+                </layer3>
+              </network>
+            </entry>
+            {% endfor %}
+          </zone>
+
+          <!-- Security Rules -->
+          <rulebase>
+            <security>
+              <rules>
+                {% for rule in base_rules | default([]) %}
+                <entry name="{{ rule.name }}">
+                  <from>
+                    <member>{{ rule.source_zone }}</member>
+                  </from>
+                  <to>
+                    <member>{{ rule.destination_zone }}</member>
+                  </to>
+                  <source>
+                    <member>{{ rule.source }}</member>
+                  </source>
+                  <destination>
+                    <member>{{ rule.destination }}</member>
+                  </destination>
+                  <application>
+                    <member>{{ rule.application | default('any') }}</member>
+                  </application>
+                  <service>
+                    <member>{{ rule.service | default('application-default') }}</member>
+                  </service>
+                  <action>{{ rule.action }}</action>
+                  <log-start>{{ rule.log_start | default('no') }}</log-start>
+                  <log-end>{{ rule.log_end | default('yes') }}</log-end>
+                </entry>
+                {% endfor %}
+              </rules>
+            </security>
+
+            <nat>
+              <rules>
+                {% for snat in nat.source_nat | default([]) %}
+                <entry name="{{ snat.name }}">
+                  <from>
+                    <member>{{ snat.source_zone }}</member>
+                  </from>
+                  <to>
+                    <member>{{ snat.destination_zone }}</member>
+                  </to>
+                  <source>
+                    <member>{{ snat.source }}</member>
+                  </source>
+                  <destination>
+                    <member>any</member>
+                  </destination>
+                  <source-translation>
+                    <dynamic-ip-and-port>
+                      <translated-address>
+                        <member>{{ snat.translated_address }}</member>
+                      </translated-address>
+                    </dynamic-ip-and-port>
+                  </source-translation>
+                </entry>
+                {% endfor %}
+              </rules>
+            </nat>
+          </rulebase>
+
+          <!-- SNMP -->
+          <snmp>
+            <system>
+              <contact>{{ snmp.contact }}</contact>
+              <location>{{ snmp.location }}</location>
+            </system>
+          </snmp>
+
+          <!-- Syslog -->
+          <log-collector-setting>
+            <syslog>
+              {% for server in syslog.servers %}
+              <entry name="SYSLOG-{{ loop.index }}">
+                <server>{{ server.ip }}</server>
+                <port>{{ server.port }}</port>
+                <transport>{{ server.protocol | upper }}</transport>
+                <facility>{{ syslog.facility | default('LOG_USER') }}</facility>
+              </entry>
+              {% endfor %}
+            </syslog>
+          </log-collector-setting>
+        </entry>
+      </vsys>
+    </entry>
+  </devices>
+</config>

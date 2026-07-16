@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  role_name: compliance_scan
+  author: Network Automation Team
+  description: Automated compliance scanning for network devices
+  license: MIT
+  min_ansible_version: "2.15"
+  galaxy_tags:
+    - network
+    - compliance
+    - security
+
+dependencies: []

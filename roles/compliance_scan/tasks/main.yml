@@ -1,0 +1,168 @@
+---
+# =============================================================================
+# Compliance Scan Role - Automated compliance checks
+# =============================================================================
+
+- name: Initialize compliance results
+  ansible.builtin.set_fact:
+    compliance_results:
+      device: "{{ inventory_hostname }}"
+      checks: []
+      passed: 0
+      failed: 0
+      timestamp: "{{ '%Y-%m-%d %H:%M:%S' | strftime }}"
+  tags: [compliance]
+
+# --- Check 1: SSH Only (No Telnet) ---
+- name: Check SSH is enabled
+  cisco.ios.ios_command:
+    commands:
+      - show running-config | include line vty
+  register: vty_config
+  when: vendor == 'cisco'
+  tags: [compliance, ssh]
+
+- name: Validate SSH-only access
+  ansible.builtin.assert:
+    that:
+      - "'ssh' in vty_config.stdout[0] | lower"
+      - "'telnet' not in vty_config.stdout[0] | lower"
+    fail_msg: "COMPLIANCE FAIL: Telnet is enabled or SSH is not enforced"
+    quiet: true
+  register: ssh_check
+  ignore_errors: true
+  when: vendor == 'cisco'
+  tags: [compliance, ssh]
+
+- name: Record SSH check result
+  ansible.builtin.set_fact:
+    compliance_results:
+      "{{ compliance_results | combine({
+        'checks': compliance_results.checks + [{
+          'name': 'SSH Only',
+          'status': 'PASS' if ssh_check is success else 'FAIL',
+          'severity': 'CRITICAL'
+        }],
+        'passed': compliance_results.passed + (1 if ssh_check is success else 0),
+        'failed': compliance_results.failed + (0 if ssh_check is success else 1)
+      }) }}"
+  when: vendor == 'cisco'
+  tags: [compliance, ssh]
+
+# --- Check 2: NTP Configured ---
+- name: Check NTP configuration
+  cisco.ios.ios_command:
+    commands:
+      - show running-config | include ntp server
+  register: ntp_config
+  when: vendor == 'cisco'
+  tags: [compliance, ntp]
+
+- name: Validate NTP is configured
+  ansible.builtin.assert:
+    that:
+      - "ntp_config.stdout[0] | length > 0"
+      - "ntp_config.stdout_lines[0] | length >= 2"
+    fail_msg: "COMPLIANCE FAIL: Less than 2 NTP servers configured"
+    quiet: true
+  register: ntp_check
+  ignore_errors: true
+  when: vendor == 'cisco'
+  tags: [compliance, ntp]
+
+- name: Record NTP check result
+  ansible.builtin.set_fact:
+    compliance_results:
+      "{{ compliance_results | combine({
+        'checks': compliance_results.checks + [{
+          'name': 'NTP Configured',
+          'status': 'PASS' if ntp_check is success else 'FAIL',
+          'severity': 'HIGH'
+        }],
+        'passed': compliance_results.passed + (1 if ntp_check is success else 0),
+        'failed': compliance_results.failed + (0 if ntp_check is success else 1)
+      }) }}"
+  when: vendor == 'cisco'
+  tags: [compliance, ntp]
+
+# --- Check 3: AAA Enabled ---
+- name: Check AAA configuration
+  cisco.ios.ios_command:
+    commands:
+      - show running-config | include aaa new-model
+  register: aaa_config
+  when: vendor == 'cisco'
+  tags: [compliance, aaa]
+
+- name: Validate AAA is enabled
+  ansible.builtin.assert:
+    that:
+      - "'aaa new-model' in aaa_config.stdout[0]"
+    fail_msg: "COMPLIANCE FAIL: AAA is not enabled"
+    quiet: true
+  register: aaa_check
+  ignore_errors: true
+  when: vendor == 'cisco'
+  tags: [compliance, aaa]
+
+# --- Check 4: SNMPv3 Only ---
+- name: Check SNMP configuration
+  cisco.ios.ios_command:
+    commands:
+      - show running-config | include snmp-server
+  register: snmp_config
+  when: vendor == 'cisco'
+  tags: [compliance, snmp]
+
+- name: Validate SNMPv3 only (no v1/v2c)
+  ansible.builtin.assert:
+    that:
+      - "'snmp-server community' not in snmp_config.stdout[0]"
+    fail_msg: "COMPLIANCE FAIL: SNMPv1/v2c communities detected"
+    quiet: true
+  register: snmp_check
+  ignore_errors: true
+  when: vendor == 'cisco'
+  tags: [compliance, snmp]
+
+# --- Check 5: Logging Enabled ---
+- name: Check Syslog configuration
+  cisco.ios.ios_command:
+    commands:
+      - show running-config | include logging host
+  register: syslog_config
+  when: vendor == 'cisco'
+  tags: [compliance, logging]
+
+- name: Validate Syslog is configured
+  ansible.builtin.assert:
+    that:
+      - "syslog_config.stdout[0] | length > 0"
+      - "syslog_config.stdout_lines[0] | length >= 2"
+    fail_msg: "COMPLIANCE FAIL: Less than 2 syslog servers configured"
+    quiet: true
+  register: syslog_check
+  ignore_errors: true
+  when: vendor == 'cisco'
+  tags: [compliance, logging]
+
+# --- Generate Report ---
+- name: Generate compliance report
+  ansible.builtin.template:
+    src: compliance_report.j2
+    dest: "{{ compliance_report_dir | default('./compliance/reports') }}/{{ inventory_hostname }}_{{ '%Y%m%d' | strftime }}.json"
+    mode: "0640"
+  delegate_to: localhost
+  tags: [compliance, report]
+
+- name: Display compliance summary
+  ansible.builtin.debug:
+    msg: |
+      =====================================
+      Compliance Report: {{ inventory_hostname }}
+      =====================================
+      Total Checks: {{ compliance_results.checks | length }}
+      Passed: {{ compliance_results.passed }}
+      Failed: {{ compliance_results.failed }}
+      =====================================
+  tags: [compliance, report]

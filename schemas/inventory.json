@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://network-automation.example.com/schemas/inventory.json",
+  "title": "Ansible Inventory Schema",
+  "description": "Validation schema for Ansible inventory files",
+  "type": "object",
+  "required": ["all"],
+  "properties": {
+    "all": {
+      "type": "object",
+      "properties": {
+        "children": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-z_][a-z0-9_]*$": {
+              "type": "object",
+              "properties": {
+                "hosts": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^[a-zA-Z0-9][-a-zA-Z0-9]*$": {
+                      "$ref": "#/definitions/host"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "children": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^[a-z_][a-z0-9_]*$": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "vars": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "hosts": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-zA-Z0-9][-a-zA-Z0-9]*$": {
+              "$ref": "#/definitions/host"
+            }
+          }
+        },
+        "vars": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "host": {
+      "type": "object",
+      "required": ["ansible_host", "vendor", "platform", "role", "region"],
+      "properties": {
+        "ansible_host": {
+          "type": "string",
+          "oneOf": [
+            {"format": "ipv4"},
+            {"format": "hostname"}
+          ],
+          "description": "IP address or FQDN of the device"
+        },
+        "ansible_port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 22
+        },
+        "ansible_user": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vendor": {
+          "type": "string",
+          "enum": [
+            "cisco", "juniper", "arista", "paloalto", "fortinet",
+            "checkpoint", "f5", "pfsense", "opnsense", "aws",
+            "azure", "gcp"
+          ]
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "ios", "ios-xe", "ios-xr", "nx-os",
+            "junos", "srx", "mx",
+            "eos",
+            "panos",
+            "fortios",
+            "gaia",
+            "bigip",
+            "pfsense",
+            "opnsense",
+            "vpc", "vnet", "cloud-vpc"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "core_router", "distribution_switch", "access_switch",
+            "firewall", "wan_edge", "internet_edge", "vpn_gateway",
+            "load_balancer", "wireless_controller", "cloud_gateway",
+            "management", "monitoring"
+          ]
+        },
+        "region": {
+          "type": "string",
+          "enum": [
+            "us-east", "us-west", "eu-west", "eu-central",
+            "apac-east", "apac-south", "global"
+          ]
+        },
+        "site": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+$"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["production", "staging", "lab", "dr", "development"]
+        },
+        "model": {
+          "type": "string"
+        },
+        "serial_number": {
+          "type": "string"
+        },
+        "firmware_version": {
+          "type": "string"
+        },
+        "management_ip": {
+          "type": "string",
+          "format": "ipv4"
+        },
+        "ha_role": {
+          "type": "string",
+          "enum": ["primary", "secondary", "standalone", "active", "standby"]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

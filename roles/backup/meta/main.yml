@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: backup
+  author: Network Automation Team
+  description: Backup device configurations
+  license: MIT
+  min_ansible_version: "2.15"
+  galaxy_tags:
+    - network
+    - backup
+
+dependencies: []

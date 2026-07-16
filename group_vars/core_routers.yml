@@ -1,0 +1,86 @@
+---
+# =============================================================================
+# Core Routers - Group Variables
+# =============================================================================
+
+# --- Routing Protocol Configuration ---
+routing:
+  ospf:
+    process_id: 1
+    router_id: "{{ loopback_0_ip }}"
+    areas:
+      - id: "0"
+        type: standard
+        authentication: message-digest
+    passive_interfaces:
+      - Loopback0
+      - Vlan*
+    redistribute:
+      - bgp
+      - static subnets
+  bgp:
+    asn: "{{ asn }}"
+    router_id: "{{ loopback_0_ip }}"
+    neighbors: []
+    networks: []
+    redistribute:
+      - ospf 1 match internal external-1 external-2
+    aggregates: []
+  isis:
+    net: "49.0001.{{ loopback_0_ip | replace('.', '') }}.00"
+    level: level-2
+    metric_style: wide
+    authentication:
+      type: md5
+      key: "{{ vault_isis_key }}"
+
+# --- Loopback Interfaces ---
+loopbacks:
+  - id: 0
+    ip: "{{ loopback_0_ip }}"
+    mask: 255.255.255.255
+    description: Router-ID and Management
+  - id: 1
+    ip: "{{ loopback_1_ip | default('10.255.255.1') }}"
+    mask: 255.255.255.255
+    description: BGP Peering
+
+# --- Management Interface ---
+management_interface: Loopback0
+
+# --- QoS Configuration ---
+qos:
+  enabled: true
+  trust_boundary: cos
+  policy_maps:
+    - name: QOS-CORE
+      classes:
+        - name: CRITICAL
+          priority: level-1
+          bandwidth_percent: 20
+        - name: VOICE
+          priority: level-2
+          bandwidth_percent: 30
+        - name: VIDEO
+          bandwidth_percent: 20
+        - name: DATA
+          bandwidth_percent: 25
+        - name: DEFAULT
+          bandwidth_percent: 5
+
+# --- NetFlow / IPFIX ---
+netflow:
+  enabled: true
+  version: 9
+  destination: 10.254.5.20
+  destination_port: 2055
+  source_interface: Loopback0
+  active_timeout: 1
+  inactive_timeout: 15
+
+# --- BFD Configuration ---
+bfd:
+  enabled: true
+  interval: 300
+  min_rx: 300
+  multiplier: 3

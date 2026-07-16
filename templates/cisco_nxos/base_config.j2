@@ -1,0 +1,162 @@
+!
+! =============================================================================
+! Cisco NX-OS Base Configuration Template
+! =============================================================================
+! Device: {{ hostname }} | Site: {{ site }} | Region: {{ region }}
+! =============================================================================
+!
+
+feature ospf
+feature bgp
+feature interface-vlan
+feature hsrp
+feature lacp
+feature vpc
+feature nxapi
+!
+hostname {{ hostname }}
+!
+ip domain-name {{ dns_domain }}
+{% for domain in domain_search %}
+ip domain-list {{ domain }}
+{% endfor %}
+!
+ip name-server {{ dns_servers | join(' ') }}
+!
+{% for ntp in ntp_servers %}
+ntp server {{ ntp.ip }}{% if ntp.prefer %} prefer{% endif %}
+
+{% endfor %}
+!
+! --- AAA ---
+{% for server in aaa.servers %}
+tacacs-server host {{ server.ip }} key {{ server.key }}
+{% endfor %}
+tacacs-server group TACACS-GROUP
+{% for server in aaa.servers %}
+ server {{ server.ip }}
+{% endfor %}
+!
+aaa authentication login default group TACACS-GROUP local
+aaa authorization exec default group TACACS-GROUP local
+!
+! --- SSH ---
+ip ssh version {{ ssh.version }}
+!
+! --- SNMP ---
+{% for group in snmp.groups %}
+snmp-server group {{ group.name }} v3 priv
+{% for user in group.users %}
+snmp-server user {{ user.name }} {{ group.name }} v3 auth {{ group.auth }} {{ user.auth_key }} priv {{ group.priv }} {{ user.priv_key }}
+{% endfor %}
+{% endfor %}
+snmp-server contact {{ snmp.contact }}
+snmp-server location {{ snmp.location }}
+!
+! --- Syslog ---
+{% for server in syslog.servers %}
+logging server {{ server.ip }} {{ server.port }} {{ server.severity }}
+{% endfor %}
+logging source-interface {{ syslog.source_interface }}
+!
+! --- VLANs ---
+{% for vlan in vlans | default([]) %}
+vlan {{ vlan.id }}
+ name {{ vlan.name }}
+ state {{ vlan.state | default('active') }}
+!
+{% endfor %}
+!
+! --- Spanning Tree ---
+spanning-tree mode rapid-pvst
+spanning-tree vlan 1-3967 priority {{ spanning_tree.priority | default(8192) }}
+!
+! --- Loopbacks ---
+{% for lo in loopbacks %}
+interface loopback{{ lo.id }}
+ description {{ lo.description }}
+ ip address {{ lo.ip }}/32
+!
+{% endfor %}
+!
+! --- Interfaces ---
+{% for iface in interfaces | default([]) %}
+interface {{ iface.name }}
+{% if iface.description is defined %}
+ description {{ iface.description }}
+{% endif %}
+{% if iface.ip is defined %}
+ no switchport
+ ip address {{ iface.ip.address }}/{{ iface.ip.prefix_length | default('24') }}
+{% endif %}
+{% if iface.mode is defined and iface.mode == 'trunk' %}
+ switchport mode trunk
+{% if iface.native_vlan is defined %}
+ switchport trunk native vlan {{ iface.native_vlan }}
+{% endif %}
+{% if iface.allowed_vlans is defined %}
+ switchport trunk allowed vlan {{ iface.allowed_vlans | join(',') }}
+{% endif %}
+{% endif %}
+{% if iface.channel_group is defined %}
+ channel-group {{ iface.channel_group }} mode active
+{% endif %}
+{% if iface.mtu is defined %}
+ mtu {{ iface.mtu }}
+{% endif %}
+{% if iface.enabled | default(true) %}
+ no shutdown
+{% else %}
+ shutdown
+{% endif %}
+!
+{% endfor %}
+!
+! --- SVI ---
+{% for vlan in vlans | default([]) %}
+{% if vlan.ip_address is defined %}
+interface Vlan{{ vlan.id }}
+ description {{ vlan.name }}
+ ip address {{ vlan.ip_address }}/{{ vlan.prefix_length | default('24') }}
+ no shutdown
+{% if vlan.hsrp is defined %}
+ hsrp version {{ hsrp.version | default(2) }}
+ hsrp {{ vlan.hsrp.group }}
+  preempt delay minimum {{ hsrp.preempt_delay | default(300) }}
+  ip {{ vlan.hsrp.ip }}
+  priority {{ vlan.hsrp.priority | default(100) }}
+{% endif %}
+!
+{% endif %}
+{% endfor %}
+!
+! --- Routing ---
+{% if routing is defined %}
+{% if routing.ospf is defined %}
+router ospf {{ routing.ospf.process_id }}
+ router-id {{ routing.ospf.router_id }}
+!
+{% endif %}
+{% if routing.bgp is defined %}
+router bgp {{ routing.bgp.asn }}
+ router-id {{ routing.bgp.router_id }}
+{% for neighbor in routing.bgp.neighbors | default([]) %}
+ neighbor {{ neighbor.ip }}
+  remote-as {{ neighbor.remote_as }}
+{% if neighbor.description is defined %}
+  description {{ neighbor.description }}
+{% endif %}
+{% if neighbor.update_source is defined %}
+  update-source {{ neighbor.update_source }}
+{% endif %}
+ address-family ipv4 unicast
+{% endfor %}
+!
+{% endif %}
+{% for route in routing.static_routes | default([]) %}
+ip route {{ route.prefix }} {{ route.next_hop }}{% if route.name is defined %} name {{ route.name }}{% endif %}
+
+{% endfor %}
+{% endif %}
+!
+end

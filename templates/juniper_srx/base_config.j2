@@ -1,0 +1,124 @@
+## =============================================================================
+## Juniper SRX/JunOS Base Configuration Template (set format)
+## =============================================================================
+## Device: {{ hostname }} | Site: {{ site }} | Region: {{ region }}
+## =============================================================================
+
+## System Configuration
+set system host-name {{ hostname }}
+set system domain-name {{ dns_domain }}
+{% for domain in domain_search %}
+set system domain-search {{ domain }}
+{% endfor %}
+set system name-server {{ dns_servers | join(' ') }}
+set system time-zone {{ timezone | default('UTC') }}
+
+## NTP
+{% for ntp in ntp_servers %}
+set system ntp server {{ ntp.ip }}{% if ntp.prefer %} prefer{% endif %}
+
+{% endfor %}
+
+## Syslog
+{% for server in syslog.servers %}
+set system syslog host {{ server.ip }} any {{ server.severity | default('info') }}
+{% endfor %}
+set system syslog file messages any info
+set system syslog file interactive-commands interactive-commands info
+
+## Services - SSH Only (no Telnet for compliance)
+set system services ssh protocol-version v2
+{% for cipher in ssh.ciphers %}
+set system services ssh ciphers {{ cipher }}
+{% endfor %}
+
+## SNMP v3
+{% for group in snmp.groups %}
+set snmp v3 v3-usm-user {{ group.users[0].name }} authentication-type {{ group.auth }}
+set snmp v3 v3-usm-user {{ group.users[0].name }} authentication-password {{ group.users[0].auth_key }}
+set snmp v3 v3-usm-user {{ group.users[0].name }} privacy-type {{ group.priv }}
+set snmp v3 v3-usm-user {{ group.users[0].name }} privacy-password {{ group.users[0].priv_key }}
+set snmp v3 v3-target-parameters {{ group.name }} snmp-v3 v3-usm-user {{ group.users[0].name }}
+set snmp v3 snmp-community {{ group.name }} target {{ group.name }}
+{% endfor %}
+
+## Login Banner
+set system login message "{{ banner.login | replace('\n', ' ') | trim }}"
+
+## Management Interface
+{% for lo in loopbacks %}
+set interfaces lo0 unit {{ lo.id }} family inet address {{ lo.ip }}/32
+{% endfor %}
+
+## Physical Interfaces
+{% for iface in interfaces | default([]) %}
+set interfaces {{ iface.name }} description "{{ iface.description | default(iface.name) }}"
+{% if iface.ip is defined %}
+set interfaces {{ iface.name }} unit 0 family inet address {{ iface.ip.address }}/{{ iface.ip.prefix_length | default('24') }}
+{% endif %}
+{% if not iface.enabled | default(true) %}
+set interfaces {{ iface.name }} disable
+{% endif %}
+{% endfor %}
+
+## Security Zones
+{% for zone in zones | default([]) %}
+set security zones security-zone {{ zone.name }} interfaces {{ zone.interfaces | join(' ') }}
+set security zones security-zone {{ zone.name }} host-inbound-traffic system-services ssh
+set security zones security-zone {{ zone.name }} host-inbound-traffic system-services ping
+{% endfor %}
+
+## Security Policies
+{% for rule in base_rules | default([]) %}
+set security policies from-zone {{ rule.source_zone }} to-zone {{ rule.destination_zone }} policy {{ rule.name }} match source-address {{ rule.source }}
+set security policies from-zone {{ rule.source_zone }} to-zone {{ rule.destination_zone }} policy {{ rule.name }} match destination-address {{ rule.destination }}
+set security policies from-zone {{ rule.source_zone }} to-zone {{ rule.destination_zone }} policy {{ rule.name }} match application {{ rule.application | default('any') }}
+set security policies from-zone {{ rule.source_zone }} to-zone {{ rule.destination_zone }} policy {{ rule.name }} then {{ rule.action }}
+{% if rule.log_end %}
+set security policies from-zone {{ rule.source_zone }} to-zone {{ rule.destination_zone }} policy {{ rule.name }} then log session-close
+{% endif %}
+{% endfor %}
+
+## NAT
+{% for nat_rule in nat.source_nat | default([]) %}
+set security nat source rule-set {{ nat_rule.name }} from zone {{ nat_rule.source_zone }}
+set security nat source rule-set {{ nat_rule.name }} to zone {{ nat_rule.destination_zone }}
+set security nat source rule-set {{ nat_rule.name }} rule {{ nat_rule.name }} match source-address {{ nat_rule.source }}
+set security nat source rule-set {{ nat_rule.name }} rule {{ nat_rule.name }} then source-nat interface
+{% endfor %}
+
+## Routing - OSPF
+{% if routing.ospf is defined %}
+set routing-options router-id {{ routing.ospf.router_id }}
+set protocols ospf area {{ routing.ospf.areas[0].id | default('0.0.0.0') }}
+{% for iface in interfaces | default([]) %}
+{% if iface.ip is defined %}
+set protocols ospf area {{ routing.ospf.areas[0].id | default('0.0.0.0') }} interface {{ iface.name }}.0
+{% endif %}
+{% endfor %}
+{% for passive in routing.ospf.passive_interfaces | default([]) %}
+set protocols ospf area {{ routing.ospf.areas[0].id | default('0.0.0.0') }} interface {{ passive }} passive
+{% endfor %}
+{% endif %}
+
+## Routing - BGP
+{% if routing.bgp is defined %}
+set routing-options autonomous-system {{ routing.bgp.asn }}
+set routing-options router-id {{ routing.bgp.router_id }}
+{% for neighbor in routing.bgp.neighbors | default([]) %}
+set protocols bgp group {{ neighbor.description | default('BGP-GROUP') }} type external
+set protocols bgp group {{ neighbor.description | default('BGP-GROUP') }} neighbor {{ neighbor.ip }} peer-as {{ neighbor.remote_as }}
+{% if neighbor.update_source is defined %}
+set protocols bgp group {{ neighbor.description | default('BGP-GROUP') }} neighbor {{ neighbor.ip }} local-address {{ neighbor.update_source }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+## Static Routes
+{% for route in routing.static_routes | default([]) %}
+set routing-options static route {{ route.prefix }} next-hop {{ route.next_hop }}{% if route.distance is defined %} preference {{ route.distance }}{% endif %}
+
+{% endfor %}
+
+## Commit
+commit

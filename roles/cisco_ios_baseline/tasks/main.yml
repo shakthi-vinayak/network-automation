@@ -1,0 +1,155 @@
+---
+# =============================================================================
+# Cisco IOS Baseline Role - Platform-specific configuration
+# =============================================================================
+
+- name: Set hostname
+  cisco.ios.ios_config:
+    lines:
+      - "hostname {{ hostname | default(inventory_hostname) }}"
+  tags: [hostname]
+
+- name: Configure NTP servers
+  cisco.ios.ios_config:
+    lines: >-
+      {% for ntp in ntp_servers %}
+      ntp server {{ ntp.ip }}{% if ntp.prefer %} prefer{% endif %}
+      {% endfor %}
+  tags: [ntp]
+
+- name: Configure DNS
+  cisco.ios.ios_config:
+    lines:
+      - "ip domain-name {{ dns_domain }}"
+      - "ip name-server {{ dns_servers | join(' ') }}"
+  tags: [dns]
+
+- name: Configure AAA
+  cisco.ios.ios_config:
+    lines:
+      - "aaa new-model"
+      - "aaa authentication login default {{ aaa.authentication.login }}"
+      - "aaa authorization exec default {{ aaa.authorization.exec }}"
+    parents: []
+  tags: [aaa]
+
+- name: Configure TACACS+ servers
+  cisco.ios.ios_config:
+    lines:
+      - "address ipv4 {{ item.ip }}"
+      - "key {{ item.key }}"
+    parents: ["tacacs server TACACS-{{ item_priority }}"]
+  loop: "{{ aaa.servers }}"
+  loop_control:
+    label: "{{ item.ip }}"
+    index_var: item_priority
+  tags: [aaa, tacacs]
+
+- name: Configure SNMPv3
+  cisco.ios.ios_config:
+    lines:
+      - "snmp-server contact {{ snmp.contact }}"
+      - "snmp-server location {{ snmp.location }}"
+  tags: [snmp]
+
+- name: Configure SNMPv3 users
+  cisco.ios.ios_config:
+    lines:
+      - "snmp-server user {{ item.1.name }} {{ item.0.name }} v3 auth {{ item.0.auth }} {{ item.1.auth_key }} priv {{ item.0.priv }} {{ item.1.priv_key }}"
+  loop: "{{ snmp.groups | subelements('users') }}"
+  loop_control:
+    label: "{{ item.1.name }}"
+  tags: [snmp]
+
+- name: Configure Syslog
+  cisco.ios.ios_config:
+    lines:
+      - "logging host {{ item.ip }} transport {{ item.protocol }} port {{ item.port }}"
+  loop: "{{ syslog.servers }}"
+  loop_control:
+    label: "{{ item.ip }}"
+  tags: [syslog]
+
+- name: Configure SSH hardening
+  cisco.ios.ios_config:
+    lines:
+      - "ip ssh version {{ ssh.version }}"
+      - "ip ssh time-out {{ ssh.timeout }}"
+      - "ip ssh authentication-retries {{ ssh.authentication_retries }}"
+  tags: [ssh]
+
+- name: Configure login banner
+  cisco.ios.ios_banner:
+    text: "{{ banner.login }}"
+    state: present
+  tags: [banner]
+
+- name: Configure MOTD banner
+  cisco.ios.ios_banner:
+    banner: motd
+    text: "{{ banner.motd }}"
+    state: present
+  tags: [banner]
+
+- name: Configure VLANs
+  cisco.ios.ios_vlans:
+    config:
+      - vlan_id: "{{ item.id }}"
+        name: "{{ item.name }}"
+        state: "{{ item.state | default('active') }}"
+    state: merged
+  loop: "{{ vlans | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags: [vlans]
+
+- name: Configure interfaces
+  cisco.ios.ios_interfaces:
+    config:
+      - name: "{{ item.name }}"
+        description: "{{ item.description | default(omit) }}"
+        enabled: "{{ item.enabled | default(true) }}"
+        mtu: "{{ item.mtu | default(omit) }}"
+    state: merged
+  loop: "{{ interfaces | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags: [interfaces]
+
+- name: Configure OSPF
+  cisco.ios.ios_ospfv2:
+    config:
+      processes:
+        - process_id: "{{ routing.ospf.process_id }}"
+          router_id: "{{ routing.ospf.router_id }}"
+    state: merged
+  when: routing.ospf is defined
+  tags: [routing, ospf]
+
+- name: Configure BGP
+  cisco.ios.ios_bgp_address_family:
+    config:
+      - as_number: "{{ routing.bgp.asn }}"
+    state: merged
+  when: routing.bgp is defined
+  tags: [routing, bgp]
+
+- name: Configure static routes
+  cisco.ios.ios_static_routes:
+    config:
+      - address_families:
+          - afi: ipv4
+            routes:
+              - dest: "{{ item.prefix }}"
+                next_hops:
+                  - forward_router_address: "{{ item.next_hop }}"
+    state: merged
+  loop: "{{ routing.static_routes | default([]) }}"
+  loop_control:
+    label: "{{ item.prefix }}"
+  tags: [routing, static]
+
+- name: Save configuration
+  ansible.builtin.meta: flush_handlers
+  notify: save_config_cisco
+  tags: [save]

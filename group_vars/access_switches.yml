@@ -1,0 +1,114 @@
+---
+# =============================================================================
+# Access Switches - Group Variables
+# =============================================================================
+
+# --- VLAN Configuration ---
+vlans:
+  - id: 10
+    name: MANAGEMENT
+    state: active
+  - id: 30
+    name: USER-DATA
+    state: active
+  - id: 40
+    name: VOICE
+    state: active
+  - id: 50
+    name: VIDEO
+    state: active
+  - id: 60
+    name: GUEST
+    state: active
+  - id: 999
+    name: NATIVE-UNUSED
+    state: active
+
+# --- Spanning Tree ---
+spanning_tree:
+  mode: rapid-pvst
+  priority: 16384
+  loopguard: false
+  bpdu_guard_default: true
+
+# --- Port Security Defaults ---
+port_security:
+  enabled: true
+  max_mac_addresses: 3
+  violation: restrict
+  aging_time: 60
+
+# --- 802.1X / NAC ---
+dot1x:
+  enabled: true
+  system_auth_control: true
+  guest_vlan: 60
+  auth_fail_vlan: 999
+  radius_timeout: 5
+  radius_retransmit: 2
+
+# --- Default Access Port Configuration ---
+access_port_defaults:
+  mode: access
+  access_vlan: 30
+  voice_vlan: 40
+  spanning_tree:
+    portfast: true
+    bpduguard: true
+  storm_control:
+    broadcast: "20.00"
+    multicast: "20.00"
+    action: shutdown
+  port_security:
+    max_mac: 2
+    violation: restrict
+
+# --- Default Trunk Port Configuration ---
+trunk_port_defaults:
+  mode: trunk
+  native_vlan: 999
+  allowed_vlans: ALL
+  spanning_tree:
+    guard: root
+  storm_control:
+    broadcast: "30.00"
+    multicast: "30.00"
+    action: shutdown
+
+# --- Uplink Configuration ---
+uplinks:
+  port_channel_id: 1
+  mode: active
+  min_links: 1
+  members: []
+  description: "UPLINK-TO-DIST"
+
+# --- PoE Configuration ---
+poe:
+  enabled: true
+  power_management: dynamic
+  usage_threshold: 80
+
+# --- DHCP Snooping ---
+dhcp_snooping:
+  enabled: true
+  vlans:
+    - 30
+    - 40
+    - 50
+    - 60
+  trusted_interfaces: []
+  rate_limit: 100
+
+# --- Dynamic ARP Inspection ---
+arp_inspection:
+  enabled: true
+  vlans:
+    - 30
+    - 40
+    - 50
+    - 60
+
+# --- IP Source Guard ---
+ip_source_guard:
+  enabled: true

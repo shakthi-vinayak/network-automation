@@ -1,0 +1,67 @@
+{
+  "device_name": "core-rtr-01-us-east",
+  "vendor": "cisco",
+  "platform": "ios-xe",
+  "role": "core_router",
+  "region": "us-east",
+
+  "transport_methods": ["ssh"],
+  "ssh_enabled": true,
+  "ssh_version": 2,
+  "ssh_ciphers": ["aes256-gcm", "aes128-gcm", "aes256-ctr"],
+  "ssh_macs": ["hmac-sha2-256", "hmac-sha2-512"],
+
+  "snmp_v3_enabled": true,
+  "snmp_v3_auth_protocol": "sha",
+  "snmp_v3_priv_protocol": "aes-256",
+  "snmp_v1v2_communities": [],
+
+  "ntp_servers": ["10.0.0.1", "10.0.0.2", "10.0.0.3"],
+
+  "aaa_enabled": true,
+  "aaa_protocol": "tacacs+",
+  "aaa_servers": ["10.0.0.20", "10.0.0.21", "10.0.0.22"],
+
+  "syslog_servers": [
+    {"host": "10.0.0.10", "severity": "informational", "transport": "udp"},
+    {"host": "10.0.0.11", "severity": "informational", "transport": "tcp"},
+    {"host": "10.0.0.12", "severity": "informational", "transport": "udp"}
+  ],
+
+  "login_banner": "AUTHORIZED ACCESS ONLY — All activity is monitored and logged.",
+  "motd_banner": "Enterprise Network Automation Platform — core-rtr-01-us-east",
+
+  "default_credentials_active": false,
+  "local_users": [
+    {"username": "admin", "password_encrypted": true, "privilege": 15},
+    {"username": "backup-admin", "password_encrypted": true, "privilege": 15}
+  ],
+
+  "firmware_version": "17.6.3",
+  "approved_firmware_list": ["17.3.5", "17.6.3", "17.9.1", "17.12.1"],
+
+  "firewall_rules": [
+    {
+      "name": "allow-mgmt-ssh",
+      "source_zone": "trust",
+      "destination_zone": "management",
+      "source_addresses": ["10.0.0.0/8"],
+      "destination_addresses": ["10.1.0.0/16"],
+      "ports": ["22"],
+      "action": "allow",
+      "logging": true,
+      "applications": ["ssh"]
+    },
+    {
+      "name": "deny-all",
+      "source_zone": "any",
+      "destination_zone": "any",
+      "source_addresses": ["any"],
+      "destination_addresses": ["any"],
+      "ports": ["any"],
+      "action": "deny",
+      "logging": true,
+      "applications": ["any"]
+    }
+  ]
+}

@@ -1,0 +1,179 @@
+---
+# =============================================================================
+# Global Variables - Applied to all devices
+# =============================================================================
+
+# --- NTP Configuration ---
+ntp_servers:
+  - ip: 10.254.1.10
+    prefer: true
+    key_id: 1
+    version: 4
+  - ip: 10.254.1.11
+    prefer: false
+    key_id: 1
+    version: 4
+  - ip: 10.254.1.12
+    prefer: false
+    key_id: 1
+    version: 4
+
+# --- DNS Configuration ---
+dns_servers:
+  - 10.254.2.10
+  - 10.254.2.11
+dns_domain: corp.example.com
+domain_search:
+  - corp.example.com
+  - internal.example.com
+  - mgmt.example.com
+
+# --- AAA Configuration ---
+aaa:
+  protocol: tacacs+
+  servers:
+    - ip: 10.254.3.10
+      key: "{{ vault_tacacs_key }}"
+      port: 49
+      priority: 1
+    - ip: 10.254.3.11
+      key: "{{ vault_tacacs_key }}"
+      port: 49
+      priority: 2
+    - ip: 10.254.3.12
+      key: "{{ vault_tacacs_key }}"
+      port: 49
+      priority: 3
+  authentication:
+    login: group tacacs+ local
+    enable: group tacacs+ local
+  authorization:
+    exec: group tacacs+ local
+    config_commands: group tacacs+ local
+  accounting:
+    exec: group tacacs+
+    commands:
+      - 1
+      - 15
+
+# --- SNMP Configuration (v3 only for compliance) ---
+snmp:
+  version: v3
+  contact: netops@example.com
+  location: "{{ site | upper }} Data Center"
+  groups:
+    - name: NETOPS-RO
+      auth: sha-256
+      priv: aes-256
+      users:
+        - name: snmp_monitor
+          auth_key: "{{ vault_snmp_auth_key }}"
+          priv_key: "{{ vault_snmp_priv_key }}"
+    - name: NETOPS-RW
+      auth: sha-512
+      priv: aes-256
+      users:
+        - name: snmp_admin
+          auth_key: "{{ vault_snmp_admin_auth_key }}"
+          priv_key: "{{ vault_snmp_admin_priv_key }}"
+  communities: []
+
+# --- Syslog Configuration ---
+syslog:
+  servers:
+    - ip: 10.254.4.10
+      port: 514
+      severity: informational
+      vrf: MGMT
+      protocol: udp
+    - ip: 10.254.4.11
+      port: 514
+      severity: informational
+      vrf: MGMT
+      protocol: udp
+    - ip: 10.254.4.12
+      port: 6514
+      severity: notification
+      vrf: MGMT
+      protocol: tcp
+  source_interface: Loopback0
+  facility: local6
+  buffer_size: 65536
+  timestamp: year
+
+# --- SSH Hardening ---
+ssh:
+  version: 2
+  timeout: 10
+  authentication_retries: 3
+  max_sessions: 4
+  ciphers:
+    - aes256-gcm@openssh.com
+    - aes128-gcm@openssh.com
+    - aes256-ctr
+    - aes192-ctr
+    - aes128-ctr
+  mac_algorithms:
+    - hmac-sha2-512-etm@openssh.com
+    - hmac-sha2-256-etm@openssh.com
+    - hmac-sha2-512
+    - hmac-sha2-256
+  key_exchange:
+    - curve25519-sha256
+    - ecdh-sha2-nistp521
+    - ecdh-sha2-nistp384
+    - ecdh-sha2-nistp256
+  host_key_algorithms:
+    - ssh-ed25519
+    - ecdsa-sha2-nistp521
+    - ecdsa-sha2-nistp384
+    - ecdsa-sha2-nistp256
+    - rsa-sha2-512
+    - rsa-sha2-256
+
+# --- Banner Configuration ---
+banner:
+  login: |
+    ********************************************************************************
+    *                    AUTHORIZED ACCESS ONLY                                    *
+    *  This system is for authorized users only. All activities are monitored      *
+    *  and logged. Unauthorized access will be prosecuted to the full extent       *
+    *  of the law. By accessing this system, you consent to monitoring.            *
+    ********************************************************************************
+  motd: |
+    ================================================================================
+    {{ hostname | default(inventory_hostname) }} - {{ environment | upper }} Environment
+    Site: {{ site | upper }} | Region: {{ region | upper }}
+    Managed by: Network Automation Platform
+    ================================================================================
+
+# --- Management ---
+management_vrf: MGMT
+timezone: UTC 0
+
+# --- Backup Configuration ---
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retention_days: 90
+  encrypt: true
+  destination: s3://net-backups-{{ environment }}
+
+# --- Compliance Baseline ---
+golden_config_version: "2.1.0"
+approved_firmware:
+  - "17.6.5"
+  - "17.9.3"
+  - "17.11.1"
+  - "4.28.3M"
+  - "10.2.5"
+  - "10.2.4"
+  - "7.2.7"
+  - "11.0.3"
+
+# --- Monitoring ---
+monitoring:
+  prometheus_endpoint: http://10.254.5.10:9090
+  grafana_endpoint: http://10.254.5.11:3000
+  otel_collector: 10.254.5.12:4317
+  health_check_interval: 300

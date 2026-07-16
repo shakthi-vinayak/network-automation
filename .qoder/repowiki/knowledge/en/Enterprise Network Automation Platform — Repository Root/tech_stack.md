@@ -1,0 +1,1 @@
+Ansible 2.15+ with NAPALM/Netmiko/Nornir, Python 3.11+, Jinja2 templating, Terraform/Packer for cloud IaC, GitHub Actions CI/CD, pytest + Molecule + Batfish + pyATS for testing, Prometheus/Grafana/OpenTelemetry for observability, and multiple secrets backends (Vault, AWS/Azure/CyberArk, Ansible Vault).

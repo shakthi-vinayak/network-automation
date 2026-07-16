@@ -1,0 +1,7 @@
+schema_version: 1
+module_path: dependency_management
+title: No dependency management implementation present
+scope: []
+source_files: []
+depends_on: []
+related_to: []

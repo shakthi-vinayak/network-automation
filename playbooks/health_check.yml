@@ -1,0 +1,78 @@
+---
+# =============================================================================
+# Health Check Playbook - Comprehensive device health assessment
+# =============================================================================
+
+- name: Device Health Check
+  hosts: all
+  gather_facts: false
+  connection: ansible.netcommon.network_cli
+
+  tasks:
+    - name: Check device uptime
+      cisco.ios.ios_command:
+        commands:
+          - show version | include uptime
+      register: uptime
+      when: vendor == 'cisco'
+      tags: [health, uptime]
+
+    - name: Check CPU utilization
+      cisco.ios.ios_command:
+        commands:
+          - show processes cpu | include CPU
+      register: cpu
+      when: vendor == 'cisco'
+      tags: [health, cpu]
+
+    - name: Check memory utilization
+      cisco.ios.ios_command:
+        commands:
+          - show processes memory | include Processor
+      register: memory
+      when: vendor == 'cisco'
+      tags: [health, memory]
+
+    - name: Check interface status
+      cisco.ios.ios_command:
+        commands:
+          - show ip interface brief
+      register: interfaces
+      when: vendor == 'cisco'
+      tags: [health, interfaces]
+
+    - name: Check routing table
+      cisco.ios.ios_command:
+        commands:
+          - show ip route summary
+      register: routes
+      when: vendor == 'cisco'
+      tags: [health, routing]
+
+    - name: Check NTP status
+      cisco.ios.ios_command:
+        commands:
+          - show ntp status
+      register: ntp_status
+      when: vendor == 'cisco'
+      tags: [health, ntp]
+
+    - name: Check logging status
+      cisco.ios.ios_command:
+        commands:
+          - show logging
+      register: logging_status
+      when: vendor == 'cisco'
+      tags: [health, logging]
+
+    - name: Display health summary
+      ansible.builtin.debug:
+        msg: |
+          =====================================
+          Health Check: {{ inventory_hostname }}
+          =====================================
+          Uptime: {{ uptime.stdout[0] | default('N/A') }}
+          CPU: {{ cpu.stdout[0] | default('N/A') }}
+          Memory: {{ memory.stdout[0] | default('N/A') }}
+          =====================================
+      tags: [health, summary]

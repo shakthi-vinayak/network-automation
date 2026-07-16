@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: cisco_ios_baseline
+  author: Network Automation Team
+  description: Cisco IOS/IOS-XE baseline configuration
+  company: Example Corp
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: cisco_ios
+      versions:
+        - all
+  galaxy_tags:
+    - network
+    - cisco
+    - ios
+    - baseline
+
+dependencies:
+  - role: common

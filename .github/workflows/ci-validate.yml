@@ -1,0 +1,190 @@
+---
+name: CI - Validate
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install ansible-lint yamllint flake8 black isort
+
+      - name: YAML Lint
+        run: yamllint -c .yamllint .
+
+      - name: Ansible Lint
+        run: ansible-lint
+
+      - name: Python Lint (flake8)
+        run: flake8 python/ --max-line-length=100
+
+      - name: Python Format Check (black)
+        run: black --check python/
+
+      - name: Python Import Sort (isort)
+        run: isort --check-only --profile black python/
+
+  security-scan:
+    name: Security & Secrets Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install security tools
+        run: |
+          pip install detect-secrets bandit safety
+
+      - name: Secrets Scan
+        run: |
+          detect-secrets scan --baseline .secrets.baseline .
+          detect-secrets audit .secrets.baseline
+
+      - name: Security Scan (Bandit)
+        run: bandit -r python/ -c pyproject.toml
+
+      - name: Dependency Vulnerability Scan
+        run: safety check -r requirements.txt
+
+  schema-validation:
+    name: Schema Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyyaml jsonschema
+
+      - name: Validate Inventories
+        run: python schemas/__init__.py
+
+      - name: Validate Group Vars
+        run: |
+          python -c "
+          from schemas import SchemaValidator
+          v = SchemaValidator()
+          results = v.validate_all()
+          for path, (valid, errors) in results.items():
+              if not valid:
+                  print(f'FAIL: {path}')
+                  for e in errors: print(f'  {e}')
+                  exit(1)
+          print('All schema validations passed')
+          "
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Unit Tests
+        run: pytest tests/unit/ -v --cov=python --cov-report=xml --cov-report=term
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  template-validation:
+    name: Template Rendering
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyyaml jinja2
+
+      - name: Validate Template Rendering
+        run: |
+          python -c "
+          from python.config_gen import ConfigGenerator
+          gen = ConfigGenerator(templates_dir='templates', data_dir='.')
+          # Test rendering for each vendor template
+          import os
+          for vendor_dir in os.listdir('templates'):
+              template_path = f'{vendor_dir}/base_config.j2'
+              if os.path.exists(f'templates/{template_path}'):
+                  try:
+                      gen.generate('core-rtr-01-us-east', template_path)
+                      print(f'PASS: {template_path}')
+                  except Exception as e:
+                      print(f'FAIL: {template_path} - {e}')
+                      exit(1)
+          print('All templates validated successfully')
+          "
+
+  compliance-check:
+    name: Compliance Policy Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Run Compliance Policy Checks
+        run: |
+          python -c "
+          import yaml, sys
+          # Check that no secrets are in group_vars/host_vars
+          import os
+          for root, dirs, files in os.walk('group_vars'):
+              for f in files:
+                  path = os.path.join(root, f)
+                  with open(path) as fh:
+                      content = fh.read()
+                      if 'password:' in content.lower() and 'vault_' not in content:
+                          print(f'COMPLIANCE FAIL: Plaintext password in {path}')
+                          sys.exit(1)
+          print('Compliance policy checks passed')
+          "

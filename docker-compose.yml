@@ -1,0 +1,157 @@
+# ===========================================================================
+# Docker Compose — Network Automation Platform Services
+# ===========================================================================
+# Brings up monitoring stack + automation bots for local development.
+# Usage: docker compose up -d
+# ===========================================================================
+
+version: "3.9"
+
+services:
+  # -- Prometheus -----------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: netauto-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+    restart: unless-stopped
+    networks:
+      - netauto
+
+  # -- Alertmanager ---------------------------------------------------------
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: netauto-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    restart: unless-stopped
+    networks:
+      - netauto
+
+  # -- Grafana --------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: netauto-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=changeme
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - netauto
+
+  # -- Firewall Bot ---------------------------------------------------------
+  firewall-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netauto-firewall-bot
+    command: python -m bots.firewall_bot.firewall_bot
+    ports:
+      - "8101:8101"
+    restart: unless-stopped
+    networks:
+      - netauto
+
+  # -- VLAN Bot -------------------------------------------------------------
+  vlan-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netauto-vlan-bot
+    command: python -m bots.vlan_bot.vlan_bot
+    ports:
+      - "8102:8102"
+    restart: unless-stopped
+    networks:
+      - netauto
+
+  # -- Port Bot -------------------------------------------------------------
+  port-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netauto-port-bot
+    command: python -m bots.port_bot.port_bot
+    ports:
+      - "8103:8103"
+    restart: unless-stopped
+    networks:
+      - netauto
+
+  # -- Backup Bot -----------------------------------------------------------
+  backup-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netauto-backup-bot
+    command: python -m bots.backup_bot.backup_bot
+    ports:
+      - "8104:8104"
+    restart: unless-stopped
+    networks:
+      - netauto
+
+  # -- Health Bot -----------------------------------------------------------
+  health-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netauto-health-bot
+    command: python -m bots.health_bot.health_bot
+    ports:
+      - "8105:8105"
+    restart: unless-stopped
+    networks:
+      - netauto
+
+  # -- Compliance Bot -------------------------------------------------------
+  compliance-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netauto-compliance-bot
+    command: python -m bots.compliance_bot.compliance_bot
+    ports:
+      - "8106:8106"
+    restart: unless-stopped
+    networks:
+      - netauto
+
+  # -- Rollback Bot ---------------------------------------------------------
+  rollback-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netauto-rollback-bot
+    command: python -m bots.rollback_bot.rollback_bot
+    ports:
+      - "8107:8107"
+    restart: unless-stopped
+    networks:
+      - netauto
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  netauto:
+    driver: bridge

@@ -1,0 +1,35 @@
+---
+profile: production
+
+# Rule exclusions
+exclude_paths:
+  - .venv/
+  - venv/
+  - tests/
+  - molecule/*/state/
+  - collections/
+
+# Enable rules
+enable_list:
+  - no-same-owner
+  - yaml
+
+# Kwargs for specific rules
+rules:
+  yaml:
+    document-start: disable
+    line-length:
+      max: 200
+  fqcn:
+    warn: true
+  name[missing]:
+    warn: true
+
+# Offline mode (no network access during lint)
+offline: true
+
+# Severity
+warn_list:
+  - experimental
+  - role-name
+  - fqcn[action]

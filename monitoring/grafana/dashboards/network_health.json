@@ -1,0 +1,232 @@
+{
+  "annotations": { "list": [] },
+  "description": "Network Automation Platform — Device Health Dashboard",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Device Status Overview",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "count(network_device_up == 1)",
+          "legendFormat": "Devices Up",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Devices Down",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "expr": "count(network_device_up == 0)",
+          "legendFormat": "Devices Down",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Average CPU Utilisation (%)",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "avg(network_device_cpu_percent)",
+          "legendFormat": "Avg CPU",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Average Memory Utilisation (%)",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        {
+          "expr": "avg(network_device_memory_percent)",
+          "legendFormat": "Avg Memory",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 75 },
+              { "color": "red", "value": 95 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Interface Utilisation — Top 10",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "expr": "topk(10, network_interface_in_utilisation_percent)",
+          "legendFormat": "{{ device }} — {{ interface }} (in)",
+          "refId": "A"
+        },
+        {
+          "expr": "topk(10, network_interface_out_utilisation_percent)",
+          "legendFormat": "{{ device }} — {{ interface }} (out)",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "title": "BGP Session Status",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "expr": "network_bgp_session_state",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Automation Job Success Rate (24h)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "expr": "rate(automation_job_success_total[24h]) / rate(automation_job_total[24h]) * 100",
+          "legendFormat": "Success Rate %",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Compliance Score Trend",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "expr": "avg(compliance_score_percent)",
+          "legendFormat": "Avg Compliance Score",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Backup Status",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 22 },
+      "targets": [
+        {
+          "expr": "sum(backup_success_total)",
+          "legendFormat": "Backups OK",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Backup Failures (24h)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 22 },
+      "targets": [
+        {
+          "expr": "sum(increase(backup_failure_total[24h]))",
+          "legendFormat": "Failures",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Configuration Drift Events",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 22 },
+      "targets": [
+        {
+          "expr": "sum(increase(config_drift_detected_total[1h]))",
+          "legendFormat": "Drift Events / Hour",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["network", "automation", "monitoring"],
+  "templating": {
+    "list": [
+      {
+        "name": "region",
+        "type": "query",
+        "query": "label_values(network_device_up, region)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      },
+      {
+        "name": "device",
+        "type": "query",
+        "query": "label_values(network_device_up{region=~\"$region\"}, device)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "Network Automation — Device Health",
+  "uid": "netauto-device-health"
+}

@@ -1,0 +1,82 @@
+---
+# =============================================================================
+# Backup Role - Backup running configuration from any device
+# =============================================================================
+
+- name: Create backup directory
+  ansible.builtin.file:
+    path: "{{ backup_destination | default('./backups') }}/{{ inventory_hostname }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  tags: [backup, directory]
+
+- name: Get current timestamp
+  ansible.builtin.set_fact:
+    backup_timestamp: "{{ '%Y%m%d_%H%M%S' | strftime }}"
+  tags: [backup]
+
+- name: Backup running configuration (Cisco IOS)
+  cisco.ios.ios_config:
+    backup: true
+    backup_options:
+      filename: "{{ inventory_hostname }}_{{ backup_timestamp }}.cfg"
+      dir_path: "{{ backup_destination | default('./backups') }}/{{ inventory_hostname }}"
+  when: vendor == 'cisco' and platform in ['ios', 'ios-xe']
+  tags: [backup, cisco]
+
+- name: Backup running configuration (Cisco NX-OS)
+  cisco.nxos.nxos_config:
+    backup: true
+    backup_options:
+      filename: "{{ inventory_hostname }}_{{ backup_timestamp }}.cfg"
+      dir_path: "{{ backup_destination | default('./backups') }}/{{ inventory_hostname }}"
+  when: vendor == 'cisco' and platform == 'nx-os'
+  tags: [backup, cisco]
+
+- name: Backup running configuration (Arista EOS)
+  arista.eos.eos_config:
+    backup: true
+    backup_options:
+      filename: "{{ inventory_hostname }}_{{ backup_timestamp }}.cfg"
+      dir_path: "{{ backup_destination | default('./backups') }}/{{ inventory_hostname }}"
+  when: vendor == 'arista'
+  tags: [backup, arista]
+
+- name: Backup running configuration (Juniper JunOS)
+  junipernetworks.junos.junos_config:
+    backup: true
+    backup_options:
+      filename: "{{ inventory_hostname }}_{{ backup_timestamp }}.conf"
+      dir_path: "{{ backup_destination | default('./backups') }}/{{ inventory_hostname }}"
+  when: vendor == 'juniper'
+  tags: [backup, juniper]
+
+- name: Backup running configuration (Palo Alto PAN-OS)
+  paloaltonetworks.panos.panos_config:
+    backup: true
+    backup_options:
+      filename: "{{ inventory_hostname }}_{{ backup_timestamp }}.xml"
+      dir_path: "{{ backup_destination | default('./backups') }}/{{ inventory_hostname }}"
+  when: vendor == 'paloalto'
+  tags: [backup, paloalto]
+
+- name: Encrypt backup (if enabled)
+  ansible.builtin.command:
+    cmd: "gpg --symmetric --cipher-algo AES256 --batch --passphrase {{ vault_backup_passphrase }} {{ backup_destination | default('./backups') }}/{{ inventory_hostname }}/{{ inventory_hostname }}_{{ backup_timestamp }}.cfg"
+  when: backup.encrypt | default(false)
+  delegate_to: localhost
+  tags: [backup, encrypt]
+
+- name: Remove unencrypted backup after encryption
+  ansible.builtin.file:
+    path: "{{ backup_destination | default('./backups') }}/{{ inventory_hostname }}/{{ inventory_hostname }}_{{ backup_timestamp }}.cfg"
+    state: absent
+  when: backup.encrypt | default(false)
+  delegate_to: localhost
+  tags: [backup, encrypt]
+
+- name: Log backup completion
+  ansible.builtin.debug:
+    msg: "Backup completed: {{ inventory_hostname }}_{{ backup_timestamp }}.cfg"
+  tags: [backup]

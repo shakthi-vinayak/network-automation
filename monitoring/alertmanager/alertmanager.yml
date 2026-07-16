@@ -1,0 +1,79 @@
+---
+# =============================================================================
+# Alertmanager Configuration
+# =============================================================================
+
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: "smtp.example.com:587"
+  smtp_from: "alertmanager@example.com"
+  smtp_auth_username: "alertmanager@example.com"
+
+# Inhibition rules
+inhibit_rules:
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ["alertname", "instance"]
+
+# Routing tree
+route:
+  group_by: ["alertname", "instance", "region"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: "default-receiver"
+
+  routes:
+    # Critical alerts to PagerDuty
+    - match:
+        severity: critical
+      receiver: "pagerduty-critical"
+      continue: true
+
+    # Network alerts to Slack
+    - match_re:
+        alertname: "Network.*|BGP.*"
+      receiver: "slack-network"
+
+    # Automation alerts to Slack
+    - match_re:
+        alertname: "Automation.*|Compliance.*|Backup.*|ConfigurationDrift"
+      receiver: "slack-automation"
+
+    # All alerts to Teams
+    - match:
+        severity: critical
+      receiver: "teams-critical"
+
+# Receivers
+receivers:
+  - name: "default-receiver"
+    email_configs:
+      - to: "netops@example.com"
+        send_resolved: true
+
+  - name: "pagerduty-critical"
+    pagerduty_configs:
+      - service_key: "${PAGERDUTY_SERVICE_KEY}"
+        severity: critical
+
+  - name: "slack-network"
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#network-alerts"
+        send_resolved: true
+        title: '{{ template "slack.title" . }}'
+        text: '{{ template "slack.text" . }}'
+
+  - name: "slack-automation"
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#automation-alerts"
+        send_resolved: true
+
+  - name: "teams-critical"
+    webhook_configs:
+      - url: "${TEAMS_WEBHOOK_URL}"
+        send_resolved: true

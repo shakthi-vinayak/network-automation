@@ -1,0 +1,62 @@
+---
+# Molecule verify playbook — validates role outcomes
+- name: Verify common role configuration
+  hosts: all
+  gather_facts: false
+  connection: network_cli
+
+  tasks:
+    - name: Retrieve running configuration
+      ansible.netcommon.cli_command:
+        command: "show running-config"
+      register: running_config
+      ignore_errors: true
+
+    - name: Verify NTP is configured
+      ansible.builtin.assert:
+        that:
+          - "'ntp server' in running_config.stdout"
+        fail_msg: "NTP server configuration missing"
+        success_msg: "NTP configuration verified"
+
+    - name: Verify SSH v2 is enforced
+      ansible.builtin.assert:
+        that:
+          - "'ip ssh version 2' in running_config.stdout or 'ssh version 2' in running_config.stdout"
+        fail_msg: "SSH version 2 not enforced"
+        success_msg: "SSH v2 verified"
+
+    - name: Verify no Telnet transport
+      ansible.builtin.assert:
+        that:
+          - "'transport input telnet' not in running_config.stdout"
+        fail_msg: "Telnet transport detected — COMPLIANCE VIOLATION"
+        success_msg: "No Telnet — compliant"
+
+    - name: Verify SNMPv3 configured
+      ansible.builtin.assert:
+        that:
+          - "'snmp-server user' in running_config.stdout or 'snmp v3' in running_config.stdout"
+        fail_msg: "SNMPv3 user not configured"
+        success_msg: "SNMPv3 user verified"
+
+    - name: Verify AAA is enabled
+      ansible.builtin.assert:
+        that:
+          - "'aaa new-model' in running_config.stdout or 'aaa' in running_config.stdout"
+        fail_msg: "AAA not enabled"
+        success_msg: "AAA enabled"
+
+    - name: Verify syslog is configured
+      ansible.builtin.assert:
+        that:
+          - "'logging host' in running_config.stdout or 'syslog' in running_config.stdout"
+        fail_msg: "Syslog not configured"
+        success_msg: "Syslog configuration verified"
+
+    - name: Verify login banner
+      ansible.builtin.assert:
+        that:
+          - "'banner' in running_config.stdout"
+        fail_msg: "Login/MOTD banner missing"
+        success_msg: "Banner verified"

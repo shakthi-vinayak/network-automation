@@ -1,0 +1,102 @@
+---
+# =============================================================================
+# Host Variables - core-rtr-01-us-east
+# =============================================================================
+
+hostname: core-rtr-01-us-east
+
+# --- Loopback IPs ---
+loopback_0_ip: 10.255.1.1
+loopback_1_ip: 10.255.1.2
+
+# --- BGP Configuration ---
+asn: 65001
+routing:
+  bgp:
+    neighbors:
+      - ip: 10.255.1.2
+        remote_as: 65001
+        description: iBGP to core-rtr-02-us-east
+        update_source: Loopback0
+      - ip: 10.255.2.1
+        remote_as: 65002
+        description: eBGP to core-rtr-01-us-west
+        update_source: Loopback0
+        ebgp_multihop: 2
+      - ip: 10.255.3.1
+        remote_as: 65003
+        description: eBGP to core-rtr-01-eu
+        update_source: Loopback0
+        ebgp_multihop: 2
+    networks:
+      - prefix: 10.0.0.0
+        mask: 255.0.0.0
+      - prefix: 172.16.0.0
+        mask: 255.240.0.0
+
+# --- Interfaces ---
+interfaces:
+  - name: GigabitEthernet0/0/0
+    description: TO-core-rtr-02-us-east
+    ip:
+      address: 10.100.0.1
+      mask: 255.255.255.252
+    enabled: true
+    mtu: 9216
+  - name: GigabitEthernet0/0/1
+    description: TO-dist-sw-01-us-east
+    ip:
+      address: 10.100.1.1
+      mask: 255.255.255.252
+    enabled: true
+    mtu: 9216
+  - name: GigabitEthernet0/0/2
+    description: TO-dist-sw-02-us-east
+    ip:
+      address: 10.100.1.5
+      mask: 255.255.255.252
+    enabled: true
+    mtu: 9216
+  - name: GigabitEthernet0/0/3
+    description: TO-wan-rtr-01-us-east
+    ip:
+      address: 10.100.2.1
+      mask: 255.255.255.252
+    enabled: true
+  - name: GigabitEthernet0/0/4
+    description: TO-fw-edge-01-us-east
+    ip:
+      address: 10.100.3.1
+      mask: 255.255.255.252
+    enabled: true
+
+# --- ACLs ---
+acl:
+  - name: MGMT-ACCESS
+    type: extended
+    entries:
+      - sequence: 10
+        action: permit
+        protocol: tcp
+        source: 10.254.0.0 0.0.255.255
+        destination: any
+      - sequence: 20
+        action: permit
+        protocol: tcp
+        source: any
+        destination: any
+        remark: Allow SSH from management
+      - sequence: 100
+        action: deny
+        protocol: ip
+        source: any
+        destination: any
+        log: true
+
+# --- Static Routes ---
+routing:
+  static_routes:
+    - prefix: 0.0.0.0/0
+      next_hop: 10.100.3.2
+      distance: 10
+      name: DEFAULT-VIA-FIREWALL

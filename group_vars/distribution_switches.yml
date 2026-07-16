@@ -1,0 +1,102 @@
+---
+# =============================================================================
+# Distribution Switches - Group Variables
+# =============================================================================
+
+# --- VLAN Configuration ---
+vlans:
+  - id: 10
+    name: MANAGEMENT
+    state: active
+  - id: 20
+    name: SERVERS
+    state: active
+  - id: 30
+    name: USER-DATA
+    state: active
+  - id: 40
+    name: VOICE
+    state: active
+  - id: 50
+    name: VIDEO
+    state: active
+  - id: 60
+    name: GUEST
+    state: active
+  - id: 100
+    name: INFRASTRUCTURE
+    state: active
+  - id: 200
+    name: DMZ
+    state: active
+  - id: 999
+    name: NATIVE-UNUSED
+    state: active
+
+# --- Spanning Tree ---
+spanning_tree:
+  mode: rapid-pvst
+  priority: 8192
+  loopguard: true
+  bpdu_guard_default: true
+  bridge_assurance: true
+
+# --- Port Channel Configuration ---
+port_channel_defaults:
+  mode: active
+  min_links: 1
+  lacp_rate: fast
+  hash_distribution: src-dst-ip
+
+# --- First Hop Redundancy ---
+hsrp:
+  version: 2
+  preempt: true
+  preempt_delay: 300
+  authentication: md5 key-string "{{ vault_hsrp_key }}"
+
+vrrp:
+  preempt: true
+  authentication: text "{{ vault_vrrp_key }}"
+
+# --- Layer 3 Routing ---
+routing:
+  ospf:
+    process_id: 1
+    router_id: "{{ loopback_0_ip }}"
+    areas:
+      - id: "0"
+        type: standard
+        authentication: message-digest
+    passive_interfaces:
+      - Vlan*
+      - Loopback0
+  static_routes:
+    - prefix: 0.0.0.0/0
+      next_hop: "{{ default_gateway }}"
+      distance: 1
+      name: DEFAULT-ROUTE
+
+# --- VRF Configuration ---
+vrfs:
+  - name: MGMT
+    rd: "65000:1"
+    route_targets:
+      import:
+        - "65000:1"
+      export:
+        - "65000:1"
+
+# --- Multicast ---
+multicast:
+  enabled: true
+  pim_mode: sparse-mode
+  rp_address: 10.254.10.1
+  ssm_range: 232.0.0.0/8
+
+# --- Storm Control Defaults ---
+storm_control_defaults:
+  broadcast: "20.00"
+  multicast: "20.00"
+  unicast: "50.00"
+  action: shutdown

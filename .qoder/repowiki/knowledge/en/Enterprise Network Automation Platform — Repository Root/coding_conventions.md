@@ -1,0 +1,6 @@
+- Device configurations are generated exclusively from Jinja2 templates keyed by vendor/platform under `templates/<vendor>/`, never hand-edited on devices.
+- Inventory entries tag every host with `vendor`, `platform`, `role`, `region`, and `site` attributes to drive template selection and grouping.
+- Secrets are never committed; all credentials flow through a unified secrets adapter layer backed by Vault/AWS/Azure/CyberArk/Ansible Vault, accessed via environment variables or OIDC federation.
+- Every change follows a GitOps PR workflow: lint/schema/secrets-scan → unit/Molecule/Batfish tests → compliance check → dry run → manual approval → automated deploy with post-deploy verification and auto-rollback.
+- Python modules under `python/` follow PEP 8 with type hints, docstrings, and co-located unit tests, exposing CLI entry points via `python -m <module>`.
+- Commit messages use Conventional Commits format (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `ci:`) and pre-commit hooks enforce ansible-lint, yamllint, flake8, and black.

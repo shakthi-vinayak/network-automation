@@ -1,0 +1,24 @@
+---
+# =============================================================================
+# Compliance Scan Playbook - Run automated compliance checks
+# =============================================================================
+
+- name: Run Compliance Scan
+  hosts: all
+  gather_facts: false
+  connection: ansible.netcommon.network_cli
+
+  tasks:
+    - name: Run compliance scan role
+      ansible.builtin.include_role:
+        name: compliance_scan
+      tags: [compliance]
+
+  post_tasks:
+    - name: Display compliance summary
+      ansible.builtin.debug:
+        msg: |
+          Compliance scan completed for {{ inventory_hostname }}
+          Passed: {{ compliance_results.passed | default(0) }}
+          Failed: {{ compliance_results.failed | default(0) }}
+      tags: [summary]

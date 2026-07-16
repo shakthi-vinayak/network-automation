@@ -1,0 +1,80 @@
+---
+# =============================================================================
+# Common Role - Default Variables
+# =============================================================================
+
+# NTP Defaults
+ntp_servers:
+  - ip: 10.254.1.10
+    prefer: true
+    version: 4
+  - ip: 10.254.1.11
+    prefer: false
+    version: 4
+
+# DNS Defaults
+dns_servers:
+  - 10.254.2.10
+  - 10.254.2.11
+dns_domain: corp.example.com
+
+# AAA Defaults
+aaa:
+  protocol: tacacs+
+  servers: []
+  authentication:
+    login: group tacacs+ local
+    enable: group tacacs+ local
+  authorization:
+    exec: group tacacs+ local
+    config_commands: group tacacs+ local
+  accounting:
+    exec: group tacacs+
+    commands:
+      - 1
+      - 15
+
+# SNMP Defaults
+snmp:
+  version: v3
+  contact: netops@example.com
+  location: "Data Center"
+  groups: []
+  communities: []
+
+# Syslog Defaults
+syslog:
+  servers: []
+  source_interface: Loopback0
+  facility: local6
+  buffer_size: 65536
+  timestamp: year
+
+# SSH Defaults
+ssh:
+  version: 2
+  timeout: 10
+  authentication_retries: 3
+  max_sessions: 4
+  ciphers:
+    - aes256-gcm@openssh.com
+    - aes128-gcm@openssh.com
+    - aes256-ctr
+  mac_algorithms:
+    - hmac-sha2-512-etm@openssh.com
+    - hmac-sha2-256-etm@openssh.com
+  key_exchange:
+    - curve25519-sha256
+    - ecdh-sha2-nistp521
+  host_key_algorithms:
+    - ssh-ed25519
+    - ecdsa-sha2-nistp521
+
+# Banner Defaults
+banner:
+  login: "Authorized access only"
+  motd: "Managed by Network Automation Platform"
+
+# Management VRF
+management_vrf: MGMT
+timezone: "UTC 0"

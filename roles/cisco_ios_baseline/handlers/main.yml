@@ -1,0 +1,14 @@
+---
+# Cisco IOS Baseline - Handlers
+
+- name: Save running config to startup
+  cisco.ios.ios_command:
+    commands:
+      - write memory
+  listen: save_config_cisco
+
+- name: Copy running config to TFTP
+  cisco.ios.ios_command:
+    commands:
+      - "copy running-config tftp://{{ backup_tftp_server | default('10.254.5.30') }}/{{ inventory_hostname }}-running.cfg"
+  listen: backup_to_tftp
